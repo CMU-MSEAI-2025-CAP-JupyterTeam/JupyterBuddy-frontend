@@ -1,0 +1,16 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v4.3.8
+_src_path: https://github.com/jupyterlab/extension-template
+author_email: emox1995@gmail.com
+author_name: Heran, Mona, Geredi and Wilson
+has_binder: false
+has_settings: false
+kind: frontend
+labextension_name: jupyterBuddy
+project_short_description: A JupyterLab extension that enables users to perform AI/ML
+    workflows seamlessly via a natural language conversational interface integrated
+    directly into JupyterLab.
+python_name: jupyterBuddy
+repository: https://github.com/CMU-MSEAI-2025-CAP-JupyterTeam/JupyterBuddy
+test: true
+

@@ -45,40 +45,16 @@ jupyter labextension develop . --overwrite
 jlpm build
 ```
 
-### Setting Up the Development Environment
-
-To ensure all developers work in the same environment, follow these steps:
+You can watch the source directory and run JupyterLab at the same time in different terminals to watch for changes in the extension's source and automatically rebuild the extension.
 
 ```bash
-# Create Conda environment from the shared configuration
-conda env create -f environment.yml
-# Activate the environment
-conda activate jupyter
-```
-
-To confirm installation:
-```bash
-conda env list  # Ensure 'jupyter' is listed and activated
-```
-
-### Running JupyterBuddy Locally
-
-```bash
-# Install frontend dependencies
-jlpm install
-
-# Build frontend assets
-jlpm run build
-
-# Watch for file changes and auto-rebuild
-jlpm run watch
-
-# Install extension in editable mode
-pip install -ve .
-
-# Start JupyterLab
+# Watch the source directory in one terminal, automatically rebuilding when needed
+jlpm watch
+# Run JupyterLab in another terminal
 jupyter lab
 ```
+
+With the watch command running, every saved change will immediately be built locally and available in your running JupyterLab. Refresh JupyterLab to load the change in your browser (you may need to wait several seconds for the extension to be rebuilt).
 
 By default, the `jlpm build` command generates the source maps for this extension to make it easier to debug using the browser dev tools. To also generate source maps for the JupyterLab core extensions, you can run the following command:
 
@@ -119,4 +95,3 @@ More information are provided within the [ui-tests](./ui-tests/README.md) README
 ### Packaging the extension
 
 See [RELEASE](RELEASE.md)
-

@@ -4,7 +4,6 @@ import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { Button, InputGroup } from '@jupyterlab/ui-components';
 import { CodeCell, MarkdownCell } from '@jupyterlab/cells';
-import '../style/base.css';
 import '../style/index.css';
 
 interface Message {

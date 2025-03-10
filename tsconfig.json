@@ -21,5 +21,15 @@
     "target": "ES2018",
     "types": ["jest"]
   },
-  "include": ["src/*"]
+
+  "include": [
+    "src/**/*",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"  // Optional, if you have a build folder
+  ]
+
 }

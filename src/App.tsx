@@ -1,4 +1,4 @@
-// src/App.tsx (corrected version)
+// src/App.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
@@ -6,16 +6,18 @@ import { Button, InputGroup } from '@jupyterlab/ui-components';
 import { CodeCell, MarkdownCell } from '@jupyterlab/cells';
 import '../style/index.css';
 
+// Define the Message interface
 interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
-
+// Define the Action interface
 interface Action {
   action_type: string;
   payload: any;
 }
 
+// Define the Props interface for the App component
 interface Props {
   app: JupyterFrontEnd;
   notebookTracker: INotebookTracker;

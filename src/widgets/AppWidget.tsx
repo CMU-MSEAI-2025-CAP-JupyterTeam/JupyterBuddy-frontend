@@ -1,8 +1,9 @@
-import { ReactWidget } from "@jupyterlab/apputils";
-import { JupyterFrontEnd } from "@jupyterlab/application";
-import { INotebookTracker } from "@jupyterlab/notebook";
-import React from "react";
-import App from "../App";
+// src/widgets/AppWidget.tsx
+import { ReactWidget } from '@jupyterlab/apputils';
+import { JupyterFrontEnd } from '@jupyterlab/application';
+import { INotebookTracker } from '@jupyterlab/notebook';
+import React from 'react';
+import App from '../App';
 
 export class AppWidget extends ReactWidget {
   private app: JupyterFrontEnd;
@@ -10,7 +11,7 @@ export class AppWidget extends ReactWidget {
 
   constructor(app: JupyterFrontEnd, notebookTracker: INotebookTracker) {
     super();
-    this.addClass("my-react-app-widget"); // Optional CSS class for styling
+    this.addClass('jp-JupyterBuddy');
     this.app = app;
     this.notebookTracker = notebookTracker;
   }

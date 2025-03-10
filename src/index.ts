@@ -1,23 +1,30 @@
-import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
+import {
+  JupyterFrontEnd,
+  JupyterFrontEndPlugin
+} from "@jupyterlab/application";
+
 import { INotebookTracker } from "@jupyterlab/notebook";
 import { AppWidget } from "./widgets/AppWidget";
 
-const extension: JupyterFrontEndPlugin<void> = {
-  id: "my-react-extension_2",
+/**
+ * Initialization data for the JupyterBuddy extension.
+ */
+const plugin: JupyterFrontEndPlugin<void> = {
+  id: "jupyterbuddy:plugin",
   autoStart: true,
-  requires: [INotebookTracker], // Require NotebookTracker for tracking notebooks
+  requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, notebookTracker: INotebookTracker) => {
-    console.log("JupyterLab React Extension is activated!");
+    console.log("JupyterLab extension JupyterBuddy is activated!");
 
-    // Create an instance of the React-based widget
+    // Create the widget
     const widget = new AppWidget(app, notebookTracker);
-    widget.id = "react-app";
+    widget.id = "jupyterbuddy-widget";
     widget.title.label = "JupyterBuddy";
     widget.title.closable = true;
 
-    // Add the widget to the left sidebar
-    app.shell.add(widget, "left");
-  },
+    // Add the widget to the left panel
+    app.shell.add(widget, "left", { rank: 500 });
+  }
 };
 
-export default extension;
+export default plugin;

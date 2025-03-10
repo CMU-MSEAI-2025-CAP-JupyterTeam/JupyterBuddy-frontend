@@ -1,5 +1,5 @@
 {
-    "name": "jupyterBuddy",
+    "name": "jupyterbuddy",
     "version": "0.1.0",
     "description": "A JupyterLab extension that enables users to perform AI/ML workflows seamlessly via a natural language conversational interface integrated directly into JupyterLab.",
     "keywords": [

@@ -1,15 +1,15 @@
 // src/App.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // JupyterFrontEnd is the main application class that is used to interact with the JupyterLab application
-import { JupyterFrontEnd } from '@jupyterlab/application'; 
+import { JupyterFrontEnd } from '@jupyterlab/application';
 // INotebookTracker is a service that tracks notebook widgets.
 // NotebookActions provides functions to interact with the notebook
-import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook'; 
+import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 // InputGroup and Button are UI components from JupyterLab
 import { Button, InputGroup } from '@jupyterlab/ui-components';
 // CodeCell and MarkdownCell are cell types from JupyterLab
 import { CodeCell, MarkdownCell } from '@jupyterlab/cells';
-import '../style/index.css'; 
+import '../style/index.css';
 
 // Define the Message interface
 interface Message {
@@ -113,7 +113,7 @@ function App({ app, notebookTracker }: Props) {
   // Get current notebook context to send with message
   const getNotebookContext = useCallback(() => {
     // Get the current notebook
-    const notebook = notebookTracker.currentWidget; 
+    const notebook = notebookTracker.currentWidget;
     if (!notebook) return null;
 
     // Get the notebook model

@@ -1,14 +1,19 @@
 // src/App.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { JupyterFrontEnd } from '@jupyterlab/application';
-import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
+// JupyterFrontEnd is the main application class that is used to interact with the JupyterLab application
+import { JupyterFrontEnd } from '@jupyterlab/application'; 
+// INotebookTracker is a service that tracks notebook widgets.
+// NotebookActions provides functions to interact with the notebook
+import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook'; 
+// InputGroup and Button are UI components from JupyterLab
 import { Button, InputGroup } from '@jupyterlab/ui-components';
+// CodeCell and MarkdownCell are cell types from JupyterLab
 import { CodeCell, MarkdownCell } from '@jupyterlab/cells';
-import '../style/index.css';
+import '../style/index.css'; 
 
 // Define the Message interface
 interface Message {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system'; // human message, model response, system message (context/instructions)
   content: string;
 }
 // Define the Action interface
@@ -23,17 +28,19 @@ interface Props {
   notebookTracker: INotebookTracker;
 }
 
+// Define the App component
 function App({ app, notebookTracker }: Props) {
+  // Define the initial state
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'system',
       content: 'Welcome to JupyterBuddy! How can I help you with your notebook?'
     }
   ]);
-  const [input, setInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [input, setInput] = useState(''); // User input
+  const [isProcessing, setIsProcessing] = useState(false); // Processing state
+  const [socket, setSocket] = useState<WebSocket | null>(null); //  WebSocket connection
+  const messagesEndRef = useRef<HTMLDivElement>(null); //  Ref for auto-scrolling
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -45,15 +52,19 @@ function App({ app, notebookTracker }: Props) {
     const sessionId = `session-${Date.now()}`;
     const ws = new WebSocket(`ws://localhost:8000/ws/${sessionId}`);
 
+    // WebSocket event handlers
+    // Handle the WebSocket connection
     ws.onopen = () => {
       console.log('WebSocket connection established');
     };
 
+    // Handle incoming messages
     ws.onmessage = event => {
       const data = JSON.parse(event.data);
 
       if (data.type === 'assistant') {
         setMessages(prev => [
+          // Add the assistant's message to the list
           ...prev,
           { role: 'assistant', content: data.content }
         ]);
@@ -65,12 +76,14 @@ function App({ app, notebookTracker }: Props) {
         }
       } else if (data.type === 'system') {
         setMessages(prev => [
+          // Add the system message to the list
           ...prev,
           { role: 'system', content: data.content }
         ]);
       }
     };
 
+    // Handle WebSocket errors
     ws.onerror = error => {
       console.error('WebSocket error:', error);
       setMessages(prev => [
@@ -83,22 +96,27 @@ function App({ app, notebookTracker }: Props) {
       ]);
     };
 
+    // Handle WebSocket connection close
     ws.onclose = () => {
       console.log('WebSocket connection closed');
     };
 
+    // Set the WebSocket connection
     setSocket(ws);
 
+    // Cleanup function
     return () => {
       ws.close();
     };
-  }, []);
+  }, []); // ([]) makes it run only once, , when the component first mounts
 
   // Get current notebook context to send with message
   const getNotebookContext = useCallback(() => {
-    const notebook = notebookTracker.currentWidget;
+    // Get the current notebook
+    const notebook = notebookTracker.currentWidget; 
     if (!notebook) return null;
 
+    // Get the notebook model
     const model = notebook.content.model;
     if (!model) return null;
 
@@ -109,7 +127,9 @@ function App({ app, notebookTracker }: Props) {
 
     // Collect information about cells
     for (let i = 0; i < cellCount; i++) {
+      // Get the cell at index i
       const cell = model.cells?.get(i);
+      // Collect cell data
       if (cell) {
         cellsData.push({
           index: i,
@@ -119,19 +139,22 @@ function App({ app, notebookTracker }: Props) {
       }
     }
 
+    // Return the notebook context
     return {
-      path: notebook.context.path,
-      title: notebook.title.label,
-      cells: cellsData,
-      activeCell: notebook.content.activeCellIndex
+      path: notebook.context.path, // Notebook path
+      title: notebook.title.label, // Notebook title
+      cells: cellsData, // Array of cell data
+      activeCell: notebook.content.activeCellIndex // Index of the active cell
     };
   }, [notebookTracker]);
 
   // Send a message to the backend
   const sendMessage = useCallback(
     async (event: React.FormEvent) => {
+      // Prevent the default form submission
       event.preventDefault();
 
+      // Check if the input is empty or the WebSocket is not ready
       if (
         !input.trim() ||
         isProcessing ||
@@ -141,6 +164,7 @@ function App({ app, notebookTracker }: Props) {
         return;
       }
 
+      // Get the input content
       const content = input.trim();
       setInput('');
       setIsProcessing(true);
@@ -162,6 +186,7 @@ function App({ app, notebookTracker }: Props) {
 
   // Handle actions from the backend
   const handleActions = useCallback((actions: Action[]) => {
+    // Process each action
     actions.forEach(action => {
       switch (action.action_type) {
         case 'CREATE_CELL':
@@ -177,15 +202,17 @@ function App({ app, notebookTracker }: Props) {
           console.warn('Unknown action type:', action.action_type);
       }
     });
-  }, []);
+  }, []); // Empty dependency array to avoid re-creating the function
 
   // Create a new cell
   const createCell = useCallback(
     (payload: any) => {
+      // Get cell type, content, and position from the payload
       const { cell_type, content, position } = payload;
       const notebookPanel = notebookTracker.currentWidget;
       if (!notebookPanel) return;
 
+      // Get the notebook content
       const notebook = notebookPanel.content;
 
       // Insert a new cell at a specific position
@@ -202,7 +229,9 @@ function App({ app, notebookTracker }: Props) {
         NotebookActions.insertBelow(notebook);
       } else if (typeof position === 'number') {
         // Insert at specific position
+        // Safely check cell index bounds
         const cellCount = notebook.model?.cells?.length || 0;
+        // Set active cell index
         notebook.activeCellIndex = Math.min(
           position,
           Math.max(0, cellCount - 1)

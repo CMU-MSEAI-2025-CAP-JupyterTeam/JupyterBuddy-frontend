@@ -110,6 +110,11 @@ function App({ app, notebookTracker }: Props) {
     };
   }, []); // ([]) makes it run only once, , when the component first mounts
 
+  // Add a system message to the chat
+  const addSystemMessage = useCallback((content: string) => {
+    setMessages(prev => [...prev, { role: 'system', content }]);
+  }, []);
+
   // Get current notebook context to send with message
   const getNotebookContext = useCallback(() => {
     // Get the current notebook
@@ -209,8 +214,17 @@ function App({ app, notebookTracker }: Props) {
     (payload: any) => {
       // Get cell type, content, and position from the payload
       const { cell_type, content, position } = payload;
+
+      // Get the current notebook
       const notebookPanel = notebookTracker.currentWidget;
-      if (!notebookPanel) return;
+
+      // Check if a notebook is open
+      if (!notebookPanel) {
+        addSystemMessage(
+          'No active notebook found. Please open a notebook first.'
+        );
+        return;
+      }
 
       // Get the notebook content
       const notebook = notebookPanel.content;
@@ -266,9 +280,16 @@ function App({ app, notebookTracker }: Props) {
   const executeCell = useCallback(
     (payload: any) => {
       const { cell_index } = payload;
+
+      // Get the current notebook
       const notebookPanel = notebookTracker.currentWidget;
 
-      if (!notebookPanel) return;
+      if (!notebookPanel) {
+        addSystemMessage(
+          'No active notebook found. Please open a notebook first.'
+        );
+        return;
+      }
 
       const notebook = notebookPanel.content;
 
@@ -292,9 +313,16 @@ function App({ app, notebookTracker }: Props) {
   const updateCell = useCallback(
     (payload: any) => {
       const { cell_index, content } = payload;
+
+      // Get the current notebook
       const notebookPanel = notebookTracker.currentWidget;
 
-      if (!notebookPanel) return;
+      if (!notebookPanel) {
+        addSystemMessage(
+          'No active notebook found. Please open a notebook first.'
+        );
+        return;
+      }
 
       const notebook = notebookPanel.content;
       const model = notebook.model;

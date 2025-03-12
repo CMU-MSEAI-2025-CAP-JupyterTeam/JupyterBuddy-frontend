@@ -86,15 +86,17 @@ function App({ app, notebookTracker }: Props) {
       } else if (data.type === 'action') {
         // Handle action requests from the LLM
         console.log('Received action request:', data.action);
-        
+
         // Execute the action
         const actionResult = executeAction(data.action);
-        
+
         // Send the action result back to the LLM
         if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({
-            action_result: actionResult
-          }));
+          socket.send(
+            JSON.stringify({
+              action_result: actionResult
+            })
+          );
         }
       }
     };
@@ -177,10 +179,10 @@ function App({ app, notebookTracker }: Props) {
 
       // Check if the input is empty or the WebSocket is not ready
       if (
-        !input.trim() ||
-        isProcessing ||
-        !socket ||
-        socket.readyState !== WebSocket.OPEN
+        !input.trim() || // Empty input
+        isProcessing || // Processing state
+        !socket || // No WebSocket connection
+        socket.readyState !== WebSocket.OPEN // WebSocket not ready
       ) {
         return;
       }
@@ -206,282 +208,298 @@ function App({ app, notebookTracker }: Props) {
   );
 
   // Execute actions requested by the LLM
-  const executeAction = useCallback((action: Action): ActionResult => {
-    console.log('Executing action:', action.action_type);
-    
-    try {
-      // Get the action type and payload
-      const { action_type, payload } = action;
-      
-      // Handle different action types
-      switch (action_type) {
-        case 'CREATE_CELL':
-          return handleCreateCellAction(payload);
-        case 'UPDATE_CELL':
-          return handleUpdateCellAction(payload);
-        case 'EXECUTE_CELL':
-          return handleExecuteCellAction(payload);
-        case 'GET_NOTEBOOK_INFO':
-          return handleGetNotebookInfoAction(payload);
-        default:
-          throw new Error(`Unknown action type: ${action_type}`);
+  const executeAction = useCallback(
+    (action: Action): ActionResult => {
+      console.log('Executing action:', action.action_type);
+
+      try {
+        // Get the action type and payload
+        const { action_type, payload } = action;
+
+        // Handle different action types
+        switch (action_type) {
+          case 'CREATE_CELL':
+            return handleCreateCellAction(payload);
+          case 'UPDATE_CELL':
+            return handleUpdateCellAction(payload);
+          case 'EXECUTE_CELL':
+            return handleExecuteCellAction(payload);
+          case 'GET_NOTEBOOK_INFO':
+            return handleGetNotebookInfoAction(payload);
+          default:
+            throw new Error(`Unknown action type: ${action_type}`);
+        }
+      } catch (error) {
+        console.error('Error executing action:', error);
+
+        // Return error result
+        return {
+          action_type: action.action_type,
+          result: {},
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
       }
-    } catch (error) {
-      console.error('Error executing action:', error);
-      
-      // Return error result
-      return {
-        action_type: action.action_type,
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }, [notebookTracker]);
+    },
+    [notebookTracker]
+  );
 
   // Handle CREATE_CELL action
-  const handleCreateCellAction = useCallback((payload: any): ActionResult => {
-    try {
-      // Get cell type, content, and position from the payload
-      const { cell_type, content, position } = payload;
+  const handleCreateCellAction = useCallback(
+    (payload: any): ActionResult => {
+      try {
+        // Get cell type, content, and position from the payload
+        const { cell_type, content, position } = payload;
 
-      // Get the current notebook
-      const notebookPanel = notebookTracker.currentWidget;
+        // Get the current notebook
+        const notebookPanel = notebookTracker.currentWidget;
 
-      // Check if a notebook is open
-      if (!notebookPanel) {
-        throw new Error('No active notebook found');
-      }
-
-      // Get the notebook content
-      const notebook = notebookPanel.content;
-      
-      // Position to insert the cell
-      let insertIndex = -1;
-
-      // Insert a new cell at a specific position
-      if (position === 'start') {
-        // Insert at the beginning
-        NotebookActions.insertAbove(notebook);
-        insertIndex = 0;
-      } else if (position === 'end' || position === undefined) {
-        // Insert at the end
-        const cellCount = notebook.model?.cells?.length || 0;
-        if (cellCount > 0) {
-          notebook.activeCellIndex = cellCount - 1;
-        }
-        NotebookActions.insertBelow(notebook);
-        insertIndex = (notebook.model?.cells?.length || 1) - 1;
-      } else if (typeof position === 'number') {
-        // Insert at specific position
-        const cellCount = notebook.model?.cells?.length || 0;
-        // Set active cell index
-        notebook.activeCellIndex = Math.min(
-          position,
-          Math.max(0, cellCount - 1)
-        );
-        NotebookActions.insertBelow(notebook);
-        insertIndex = Math.min(position + 1, cellCount);
-      } else if (position === 'after_active') {
-        // Insert after active cell
-        const activeIndex = notebook.activeCellIndex;
-        NotebookActions.insertBelow(notebook);
-        insertIndex = activeIndex + 1;
-      } else if (position === 'before_active') {
-        // Insert before active cell
-        const activeIndex = notebook.activeCellIndex;
-        NotebookActions.insertAbove(notebook);
-        insertIndex = activeIndex;
-      } else {
-        // Default: insert below current cell
-        NotebookActions.insertBelow(notebook);
-        insertIndex = notebook.activeCellIndex + 1;
-      }
-
-      // Set cell type and content
-      const activeCell = notebook.activeCell;
-      if (activeCell) {
-        // Change cell type if needed
-        if (
-          (cell_type === 'markdown' && !(activeCell instanceof MarkdownCell)) ||
-          (cell_type === 'code' && !(activeCell instanceof CodeCell))
-        ) {
-          NotebookActions.changeCellType(notebook, cell_type);
+        // Check if a notebook is open
+        if (!notebookPanel) {
+          throw new Error('No active notebook found');
         }
 
-        // Set content - using sharedModel.setSource
-        if (activeCell.model && activeCell.model.sharedModel) {
-          activeCell.model.sharedModel.setSource(content);
+        // Get the notebook content
+        const notebook = notebookPanel.content;
+
+        // Position to insert the cell
+        let insertIndex = -1;
+
+        // Insert a new cell at a specific position
+        if (position === 'start') {
+          // Insert at the beginning
+          NotebookActions.insertAbove(notebook);
+          insertIndex = 0;
+        } else if (position === 'end' || position === undefined) {
+          // Insert at the end
+          const cellCount = notebook.model?.cells?.length || 0;
+          if (cellCount > 0) {
+            notebook.activeCellIndex = cellCount - 1;
+          }
+          NotebookActions.insertBelow(notebook);
+          insertIndex = (notebook.model?.cells?.length || 1) - 1;
+        } else if (typeof position === 'number') {
+          // Insert at specific position
+          const cellCount = notebook.model?.cells?.length || 0;
+          // Set active cell index
+          notebook.activeCellIndex = Math.min(
+            position,
+            Math.max(0, cellCount - 1)
+          );
+          NotebookActions.insertBelow(notebook);
+          insertIndex = Math.min(position + 1, cellCount);
+        } else if (position === 'after_active') {
+          // Insert after active cell
+          const activeIndex = notebook.activeCellIndex;
+          NotebookActions.insertBelow(notebook);
+          insertIndex = activeIndex + 1;
+        } else if (position === 'before_active') {
+          // Insert before active cell
+          const activeIndex = notebook.activeCellIndex;
+          NotebookActions.insertAbove(notebook);
+          insertIndex = activeIndex;
+        } else {
+          // Default: insert below current cell
+          NotebookActions.insertBelow(notebook);
+          insertIndex = notebook.activeCellIndex + 1;
         }
-      }
-      
-      // Get the updated notebook context
-      const updatedContext = getNotebookContext();
-      
-      // Return success result
-      return {
-        action_type: 'CREATE_CELL',
-        result: {
-          cell_index: insertIndex,
-          notebook_context: updatedContext
-        },
-        success: true
-      };
-    } catch (error) {
-      console.error('Error creating cell:', error);
-      return {
-        action_type: 'CREATE_CELL',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }, [notebookTracker, getNotebookContext]);
 
-  // Handle UPDATE_CELL action
-  const handleUpdateCellAction = useCallback((payload: any): ActionResult => {
-    try {
-      const { cell_index, content } = payload;
+        // Set cell type and content
+        const activeCell = notebook.activeCell;
+        if (activeCell) {
+          // Change cell type if needed
+          if (
+            (cell_type === 'markdown' &&
+              !(activeCell instanceof MarkdownCell)) ||
+            (cell_type === 'code' && !(activeCell instanceof CodeCell))
+          ) {
+            NotebookActions.changeCellType(notebook, cell_type);
+          }
 
-      // Get the current notebook
-      const notebookPanel = notebookTracker.currentWidget;
+          // Set content - using sharedModel.setSource
+          if (activeCell.model && activeCell.model.sharedModel) {
+            activeCell.model.sharedModel.setSource(content);
+          }
+        }
 
-      if (!notebookPanel) {
-        throw new Error('No active notebook found');
-      }
+        // Get the updated notebook context
+        const updatedContext = getNotebookContext();
 
-      const notebook = notebookPanel.content;
-      const model = notebook.model;
-
-      // Safely check cell index bounds
-      const cellCount = model?.cells?.length || 0;
-      if (
-        !model ||
-        cell_index === undefined ||
-        cell_index < 0 ||
-        cell_index >= cellCount
-      ) {
-        throw new Error(`Invalid cell index: ${cell_index}`);
-      }
-
-      const cell = model.cells?.get(cell_index);
-      if (cell && cell.sharedModel) {
-        cell.sharedModel.setSource(content);
-        
         // Return success result
         return {
+          action_type: 'CREATE_CELL',
+          result: {
+            cell_index: insertIndex,
+            notebook_context: updatedContext
+          },
+          success: true
+        };
+      } catch (error) {
+        console.error('Error creating cell:', error);
+        return {
+          action_type: 'CREATE_CELL',
+          result: {},
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    },
+    [notebookTracker, getNotebookContext]
+  );
+
+  // Handle UPDATE_CELL action
+  const handleUpdateCellAction = useCallback(
+    (payload: any): ActionResult => {
+      try {
+        const { cell_index, content } = payload;
+
+        // Get the current notebook
+        const notebookPanel = notebookTracker.currentWidget;
+
+        if (!notebookPanel) {
+          throw new Error('No active notebook found');
+        }
+
+        const notebook = notebookPanel.content;
+        const model = notebook.model;
+
+        // Safely check cell index bounds
+        const cellCount = model?.cells?.length || 0;
+        if (
+          !model ||
+          cell_index === undefined ||
+          cell_index < 0 ||
+          cell_index >= cellCount
+        ) {
+          throw new Error(`Invalid cell index: ${cell_index}`);
+        }
+
+        const cell = model.cells?.get(cell_index);
+        if (cell && cell.sharedModel) {
+          cell.sharedModel.setSource(content);
+
+          // Return success result
+          return {
+            action_type: 'UPDATE_CELL',
+            result: {
+              cell_index,
+              notebook_context: getNotebookContext()
+            },
+            success: true
+          };
+        } else {
+          throw new Error(`Could not access cell at index ${cell_index}`);
+        }
+      } catch (error) {
+        console.error('Error updating cell:', error);
+        return {
           action_type: 'UPDATE_CELL',
+          result: {},
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    },
+    [notebookTracker, getNotebookContext]
+  );
+
+  // Handle EXECUTE_CELL action
+  const handleExecuteCellAction = useCallback(
+    (payload: any): ActionResult => {
+      try {
+        const { cell_index } = payload;
+
+        // Get the current notebook
+        const notebookPanel = notebookTracker.currentWidget;
+
+        if (!notebookPanel) {
+          throw new Error('No active notebook found');
+        }
+
+        const notebook = notebookPanel.content;
+
+        // Safely check cell index bounds
+        const cellCount = notebook.model?.cells?.length || 0;
+        if (
+          cell_index !== undefined &&
+          cell_index >= 0 &&
+          cell_index < cellCount
+        ) {
+          notebook.activeCellIndex = cell_index;
+        } else {
+          throw new Error(`Invalid cell index: ${cell_index}`);
+        }
+
+        // Execute the active cell
+        NotebookActions.run(notebook, notebookPanel.sessionContext);
+
+        // Return success result
+        return {
+          action_type: 'EXECUTE_CELL',
           result: {
             cell_index,
             notebook_context: getNotebookContext()
           },
           success: true
         };
-      } else {
-        throw new Error(`Could not access cell at index ${cell_index}`);
-      }
-    } catch (error) {
-      console.error('Error updating cell:', error);
-      return {
-        action_type: 'UPDATE_CELL',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }, [notebookTracker, getNotebookContext]);
-
-  // Handle EXECUTE_CELL action
-  const handleExecuteCellAction = useCallback((payload: any): ActionResult => {
-    try {
-      const { cell_index } = payload;
-
-      // Get the current notebook
-      const notebookPanel = notebookTracker.currentWidget;
-
-      if (!notebookPanel) {
-        throw new Error('No active notebook found');
-      }
-
-      const notebook = notebookPanel.content;
-
-      // Safely check cell index bounds
-      const cellCount = notebook.model?.cells?.length || 0;
-      if (
-        cell_index !== undefined &&
-        cell_index >= 0 &&
-        cell_index < cellCount
-      ) {
-        notebook.activeCellIndex = cell_index;
-      } else {
-        throw new Error(`Invalid cell index: ${cell_index}`);
-      }
-
-      // Execute the active cell
-      NotebookActions.run(notebook, notebookPanel.sessionContext);
-      
-      // Return success result
-      return {
-        action_type: 'EXECUTE_CELL',
-        result: {
-          cell_index,
-          notebook_context: getNotebookContext()
-        },
-        success: true
-      };
-    } catch (error) {
-      console.error('Error executing cell:', error);
-      return {
-        action_type: 'EXECUTE_CELL',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }, [notebookTracker, getNotebookContext]);
-
-  // Handle GET_NOTEBOOK_INFO action
-  const handleGetNotebookInfoAction = useCallback((payload: any): ActionResult => {
-    try {
-      const { include_cell_content = true } = payload;
-      
-      // Get the notebook context
-      const notebookContext = getNotebookContext();
-      
-      if (!notebookContext) {
-        throw new Error('No active notebook found');
-      }
-      
-      // If not including cell content, remove it
-      let result = notebookContext;
-      if (!include_cell_content && result.cells) {
-        result = {
-          ...result,
-          cells: result.cells.map(cell => ({
-            ...cell,
-            content: ''
-          }))
+      } catch (error) {
+        console.error('Error executing cell:', error);
+        return {
+          action_type: 'EXECUTE_CELL',
+          result: {},
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
         };
       }
-      
-      // Return success result
-      return {
-        action_type: 'GET_NOTEBOOK_INFO',
-        result: {
-          notebook_context: result
-        },
-        success: true
-      };
-    } catch (error) {
-      console.error('Error getting notebook info:', error);
-      return {
-        action_type: 'GET_NOTEBOOK_INFO',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }, [getNotebookContext]);
+    },
+    [notebookTracker, getNotebookContext]
+  );
+
+  // Handle GET_NOTEBOOK_INFO action
+  const handleGetNotebookInfoAction = useCallback(
+    (payload: any): ActionResult => {
+      try {
+        const { include_cell_content = true } = payload;
+
+        // Get the notebook context
+        const notebookContext = getNotebookContext();
+
+        if (!notebookContext) {
+          throw new Error('No active notebook found');
+        }
+
+        // If not including cell content, remove it
+        let result = notebookContext;
+        if (!include_cell_content && result.cells) {
+          result = {
+            ...result,
+            cells: result.cells.map(cell => ({
+              ...cell,
+              content: ''
+            }))
+          };
+        }
+
+        // Return success result
+        return {
+          action_type: 'GET_NOTEBOOK_INFO',
+          result: {
+            notebook_context: result
+          },
+          success: true
+        };
+      } catch (error) {
+        console.error('Error getting notebook info:', error);
+        return {
+          action_type: 'GET_NOTEBOOK_INFO',
+          result: {},
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    },
+    [getNotebookContext]
+  );
 
   return (
     <div className="jp-JupyterBuddy-container">

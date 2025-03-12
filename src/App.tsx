@@ -126,7 +126,7 @@ function App({ app, notebookTracker }: Props) {
     return () => {
       ws.close();
     };
-  }, []); // ([]) makes it run only once, when the component first mounts
+  }, []); // ([]) makes it run only once, when the component first mounts so the socket is only created once
 
   // Add a system message to the chat
   const addSystemMessage = useCallback((content: string) => {

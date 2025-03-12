@@ -128,11 +128,6 @@ function App({ app, notebookTracker }: Props) {
     };
   }, []); // ([]) makes it run only once, when the component first mounts so the socket is only created once
 
-  // Add a system message to the chat
-  const addSystemMessage = useCallback((content: string) => {
-    setMessages(prev => [...prev, { role: 'system', content }]);
-  }, []);
-
   // Get current notebook context to send with message
   const getNotebookContext = useCallback(() => {
     // Get the current notebook

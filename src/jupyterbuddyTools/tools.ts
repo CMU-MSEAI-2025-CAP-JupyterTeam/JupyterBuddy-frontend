@@ -6,24 +6,25 @@ import { NotebookActions } from '@jupyterlab/notebook';
 import { CodeCell, MarkdownCell } from '@jupyterlab/cells';
 import { INotebookTracker } from '@jupyterlab/notebook';
 
-
+// Updated interfaces to match OpenAI format
 export interface ToolParameter {
-  name: string;
   type: string;
   description: string;
-  required?: boolean;
   enum?: string[] | number[];
 }
 
 export interface Tool {
-  name: string;
-  description: string;
-  parameters: {
-    type: string;
-    properties: {
-      [key: string]: ToolParameter;
+  type: string;
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: string;
+      properties: {
+        [key: string]: ToolParameter;
+      };
+      required: string[];
     };
-    required?: string[];
   };
 }
 
@@ -68,90 +69,88 @@ export interface GetNotebookInfoPayload {
 // Type for getNotebookContext function
 export type GetNotebookContextFn = () => NotebookContext | null;
 
-// The tools available to JupyterBuddy
+// The tools available to JupyterBuddy - in OpenAI format
 export const jupyterBuddyTools: Tool[] = [
   {
-    name: "create_cell",
-    description: "Creates a new cell in the notebook at the specified position.",
-    parameters: {
-      type: "object",
-      properties: {
-        cell_type: {
-          name: "cell_type",
-          type: "string",
-          description: "The type of cell to create (code or markdown).",
-          required: true,
-          enum: ["code", "markdown"]
+    type: "function",
+    function: {
+      name: "create_cell",
+      description: "Creates a new cell in the notebook at the specified position.",
+      parameters: {
+        type: "object",
+        properties: {
+          cell_type: {
+            type: "string",
+            description: "The type of cell to create (code or markdown).",
+            enum: ["code", "markdown"]
+          },
+          content: {
+            type: "string", 
+            description: "The content to place in the cell."
+          },
+          position: {
+            type: "string",
+            description: "Where to create the cell. Can be 'start', 'end', 'before_active', 'after_active', or a numeric index. Defaults to 'after_active'.",
+            enum: ["start", "end", "before_active", "after_active"]
+          }
         },
-        content: {
-          name: "content",
-          type: "string", 
-          description: "The content to place in the cell.",
-          required: true
-        },
-        position: {
-          name: "position",
-          type: "string",
-          description: "Where to create the cell. Can be 'start', 'end', 'before_active', 'after_active', or a numeric index. Defaults to 'after_active'.",
-          required: false,
-          enum: ["start", "end", "before_active", "after_active"]
-        }
-      },
-      required: ["cell_type", "content"]
+        required: ["cell_type", "content"]
+      }
     }
   },
   {
-    name: "update_cell",
-    description: "Updates the content of an existing cell in the notebook.",
-    parameters: {
-      type: "object",
-      properties: {
-        cell_index: {
-          name: "cell_index",
-          type: "integer",
-          description: "The index of the cell to update (0-based).",
-          required: true
+    type: "function",
+    function: {
+      name: "update_cell",
+      description: "Updates the content of an existing cell in the notebook.",
+      parameters: {
+        type: "object",
+        properties: {
+          cell_index: {
+            type: "integer",
+            description: "The index of the cell to update (0-based)."
+          },
+          content: {
+            type: "string",
+            description: "The new content for the cell."
+          }
         },
-        content: {
-          name: "content",
-          type: "string",
-          description: "The new content for the cell.",
-          required: true
-        }
-      },
-      required: ["cell_index", "content"]
+        required: ["cell_index", "content"]
+      }
     }
   },
   {
-    name: "execute_cell",
-    description: "Executes a specific cell in the notebook.",
-    parameters: {
-      type: "object",
-      properties: {
-        cell_index: {
-          name: "cell_index",
-          type: "integer",
-          description: "The index of the cell to execute (0-based).",
-          required: true
-        }
-      },
-      required: ["cell_index"]
+    type: "function",
+    function: {
+      name: "execute_cell",
+      description: "Executes a specific cell in the notebook.",
+      parameters: {
+        type: "object",
+        properties: {
+          cell_index: {
+            type: "integer",
+            description: "The index of the cell to execute (0-based)."
+          }
+        },
+        required: ["cell_index"]
+      }
     }
   },
   {
-    name: "get_notebook_info",
-    description: "Gets information about the current notebook structure and content.",
-    parameters: {
-      type: "object",
-      properties: {
-        include_cell_content: {
-          name: "include_cell_content",
-          type: "boolean",
-          description: "Whether to include the content of each cell in the response. Defaults to true.",
-          required: false
-        }
-      },
-      required: []
+    type: "function",
+    function: {
+      name: "get_notebook_info",
+      description: "Gets information about the current notebook structure and content.",
+      parameters: {
+        type: "object",
+        properties: {
+          include_cell_content: {
+            type: "boolean",
+            description: "Whether to include the content of each cell in the response. Defaults to true."
+          }
+        },
+        required: []
+      }
     }
   }
 ];

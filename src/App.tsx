@@ -163,7 +163,7 @@ function App({ app, notebookTracker }: Props) {
     return () => {
       ws.close();
     };
-  }, [getNotebookContext, executeToolAction, socket]);
+  }, [getNotebookContext, executeToolAction]);
 
   // Send a message to the backend
   const sendMessage = useCallback(

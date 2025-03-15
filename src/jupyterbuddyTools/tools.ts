@@ -4,9 +4,8 @@
 
 import { NotebookActions } from '@jupyterlab/notebook';
 import { CodeCell, MarkdownCell } from '@jupyterlab/cells';
-import { NotebookTracker } from '@jupyterlab/notebook';
-import { INotebookModel } from '@jupyterlab/notebook';
-import { Notebook } from '@jupyterlab/notebook';
+import { INotebookTracker } from '@jupyterlab/notebook';
+
 
 export interface ToolParameter {
   name: string;
@@ -35,17 +34,16 @@ export interface ActionResult {
   error?: string;
 }
 
+// Update the NotebookContext interface in tools.ts
 export interface NotebookContext {
+  path: string;
+  title: string;
   cells: Array<{
-    cell_type: string;
+    index: number;
+    type: string;
     content: string;
-    execution_count?: number | null;
-    metadata?: Record<string, any>;
-    outputs?: Array<Record<string, any>>;
   }>;
-  metadata: Record<string, any>;
-  nbformat: number;
-  nbformat_minor: number;
+  activeCell: number;
 }
 
 export interface CreateCellPayload {
@@ -66,9 +64,6 @@ export interface ExecuteCellPayload {
 export interface GetNotebookInfoPayload {
   include_cell_content?: boolean;
 }
-
-// Union type for all payload types
-export type ToolPayload = CreateCellPayload | UpdateCellPayload | ExecuteCellPayload | GetNotebookInfoPayload;
 
 // Type for getNotebookContext function
 export type GetNotebookContextFn = () => NotebookContext | null;
@@ -166,22 +161,10 @@ export function getToolsJSON(): string {
   return JSON.stringify(jupyterBuddyTools);
 }
 
-// Type for tool functions
-export type ToolFunction<T extends ToolPayload> = (
-  payload: T,
-  notebookTracker: NotebookTracker,
-  getNotebookContext: GetNotebookContextFn
-) => ActionResult;
-
-// Tool implementation functions with proper typing
-export const toolFunctions: {
-  create_cell: ToolFunction<CreateCellPayload>;
-  update_cell: ToolFunction<UpdateCellPayload>;
-  execute_cell: ToolFunction<ExecuteCellPayload>;
-  get_notebook_info: ToolFunction<GetNotebookInfoPayload>;
-} = {
+// Tool implementation functions
+export const toolFunctions = {
   // CREATE_CELL implementation
-  create_cell: (payload, notebookTracker, getNotebookContext) => {
+  create_cell: (payload: CreateCellPayload, notebookTracker: INotebookTracker, getNotebookContext: GetNotebookContextFn): ActionResult => {
     try {
       // Get cell type, content, and position from the payload
       const { cell_type, content, position } = payload;
@@ -195,7 +178,7 @@ export const toolFunctions: {
       }
 
       // Get the notebook content
-      const notebook: Notebook = notebookPanel.content;
+      const notebook = notebookPanel.content;
 
       // Position to insert the cell
       let insertIndex = -1;
@@ -281,7 +264,7 @@ export const toolFunctions: {
   },
 
   // UPDATE_CELL implementation
-  update_cell: (payload, notebookTracker, getNotebookContext) => {
+  update_cell: (payload: UpdateCellPayload, notebookTracker: INotebookTracker, getNotebookContext: GetNotebookContextFn): ActionResult => {
     try {
       const { cell_index, content } = payload;
 
@@ -292,8 +275,8 @@ export const toolFunctions: {
         throw new Error('No active notebook found');
       }
 
-      const notebook: Notebook = notebookPanel.content;
-      const model: INotebookModel | null = notebook.model;
+      const notebook = notebookPanel.content;
+      const model = notebook.model;
 
       // Safely check cell index bounds
       const cellCount = model?.cells?.length || 0;
@@ -334,7 +317,7 @@ export const toolFunctions: {
   },
 
   // EXECUTE_CELL implementation
-  execute_cell: (payload, notebookTracker, getNotebookContext) => {
+  execute_cell: (payload: ExecuteCellPayload, notebookTracker: INotebookTracker, getNotebookContext: GetNotebookContextFn): ActionResult => {
     try {
       const { cell_index } = payload;
 
@@ -345,7 +328,7 @@ export const toolFunctions: {
         throw new Error('No active notebook found');
       }
 
-      const notebook: Notebook = notebookPanel.content;
+      const notebook = notebookPanel.content;
 
       // Safely check cell index bounds
       const cellCount = notebook.model?.cells?.length || 0;
@@ -383,7 +366,7 @@ export const toolFunctions: {
   },
 
   // GET_NOTEBOOK_INFO implementation
-  get_notebook_info: (payload, notebookTracker, getNotebookContext) => {
+  get_notebook_info: (payload: GetNotebookInfoPayload, notebookTracker: INotebookTracker, getNotebookContext: GetNotebookContextFn): ActionResult => {
     try {
       const { include_cell_content = true } = payload;
 
@@ -426,21 +409,10 @@ export const toolFunctions: {
   }
 };
 
-// Type for mapping action names to their payloads
-interface ActionPayloadMap {
-  create_cell: CreateCellPayload;
-  update_cell: UpdateCellPayload;
-  execute_cell: ExecuteCellPayload;
-  get_notebook_info: GetNotebookInfoPayload;
-}
-
 // Helper function to create a tool execution function that can be used in a component
-export function createToolExecutor(notebookTracker: NotebookTracker, getNotebookContext: GetNotebookContextFn) {
-  return function executeAction<K extends keyof ActionPayloadMap>(
-    action: K, 
-    parameters: ActionPayloadMap[K]
-  ): ActionResult {
-    const toolFunction = toolFunctions[action];
+export function createToolExecutor(notebookTracker: INotebookTracker, getNotebookContext: GetNotebookContextFn) {
+  return function executeAction(action: string, parameters: any): ActionResult {
+    const toolFunction = toolFunctions[action as keyof typeof toolFunctions];
     if (!toolFunction) {
       return {
         action_type: action,
@@ -450,8 +422,6 @@ export function createToolExecutor(notebookTracker: NotebookTracker, getNotebook
       };
     }
     
-    // Use type assertion to tell TypeScript that this function call is valid
-    // We know it's valid because our ActionPayloadMap ensures parameter types match function expectations
-    return (toolFunction as any)(parameters, notebookTracker, getNotebookContext);
+    return toolFunction(parameters, notebookTracker, getNotebookContext);
   };
 }

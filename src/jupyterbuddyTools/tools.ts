@@ -281,7 +281,7 @@ export const toolFunctions = {
       const { cell_index, content } = payload;
 
       // Use notebook helpers
-      const { notebook, model } = notebookHelpers.getNotebook(notebookTracker);
+      const { model } = notebookHelpers.getNotebook(notebookTracker);
       notebookHelpers.validateCellIndex(model, cell_index);
 
       // Update cell content

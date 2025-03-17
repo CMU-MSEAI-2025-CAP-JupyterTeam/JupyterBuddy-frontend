@@ -1,4 +1,4 @@
-// tools.ts
+// src/jupyterbuddyTools/tools.ts
 // This file defines the available tools for JupyterBuddy and their implementations
 // It serves as a single source of truth for tool definitions and functions
 
@@ -48,9 +48,9 @@ export interface NotebookContext {
     is_active?: boolean;
   }>;
   activeCell: number;
-  isEmpty: boolean;
-  hasActiveCell: boolean;
-  totalCells: number;
+  isEmpty?: boolean;
+  hasActiveCell?: boolean;
+  totalCells?: number;
 }
 
 // Payload interfaces

@@ -1,8 +1,9 @@
-// notebookHelpers.ts
+// src/jupyterbuddyTools/notebookHelpers.ts
 // Helper functions for notebook operations
 
 import { NotebookActions } from '@jupyterlab/notebook';
 import { INotebookTracker } from '@jupyterlab/notebook';
+import { ICodeCellModel } from '@jupyterlab/cells';
 
 export const notebookHelpers = {
   // Get notebook and model, throwing error if not available
@@ -95,7 +96,7 @@ export const notebookHelpers = {
   },
 
   // Get enhanced notebook state including execution info and outputs
-  getEnhancedNotebookState: (notebook: any, includeContent = true, includeOutputs = true) => {
+  getEnhancedNotebookState: (notebook: any) => {
     const model = notebook.model;
     
     return {
@@ -109,11 +110,11 @@ export const notebookHelpers = {
           index: i,
           type: cell.type,
           isActive: i === notebook.activeCellIndex,
-          content: includeContent ? cell.value.text : '',
+          content: cell.sharedModel.getSource(),
           executionCount: cell.type === 'code' ? 
-            ((cell as any).executionCount ?? null) : null,
-          outputs: (includeOutputs && cell.type === 'code') ? 
-            ((cell as any).outputs?.toJSON() ?? []) : []
+            ((cell as ICodeCellModel).executionCount ?? null) : null,
+          outputs: cell.type === 'code' ? 
+            ((cell as ICodeCellModel).outputs?.toJSON() ?? []) : []
         };
       })
     };

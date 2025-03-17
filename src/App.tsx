@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { Button, InputGroup } from '@jupyterlab/ui-components';
+import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
 import '../style/index.css';
 
 // Import tools from jupyterbuddyTools
@@ -32,32 +33,38 @@ function App({ app, notebookTracker }: Props) {
 
   // Get current notebook context
   const getNotebookContext = useCallback(() => {
-    const notebook = notebookTracker.currentWidget;
-    if (!notebook) return null;
+    try {
+      const notebookPanel = notebookTracker.currentWidget;
+      if (!notebookPanel) return null;
 
-    const model = notebook.content.model;
-    if (!model) return null;
+      const notebook = notebookPanel.content;
+      const model = notebook.model;
+      
+      if (!model) return null;
 
-    const cellsData = [];
-    const cellCount = model.cells?.length || 0;
+      // Use our enhanced notebook state helper
+      const state = notebookHelpers.getEnhancedNotebookState(notebook);
 
-    for (let i = 0; i < cellCount; i++) {
-      const cell = model.cells?.get(i);
-      if (cell) {
-        cellsData.push({
-          index: i,
+      return {
+        path: notebookPanel.context.path,
+        title: notebookPanel.title.label,
+        cells: state.cells.map(cell => ({
+          index: cell.index,
           type: cell.type,
-          content: cell.sharedModel.getSource()
-        });
-      }
+          content: cell.content,
+          execution_count: cell.executionCount,
+          outputs: cell.outputs,
+          is_active: cell.isActive
+        })),
+        activeCell: notebook.activeCellIndex,
+        isEmpty: state.isEmpty,
+        hasActiveCell: state.hasActiveCell,
+        totalCells: state.totalCells
+      };
+    } catch (error) {
+      console.error('Error getting notebook context:', error);
+      return null;
     }
-
-    return {
-      path: notebook.context.path,
-      title: notebook.title.label,
-      cells: cellsData,
-      activeCell: notebook.content.activeCellIndex
-    };
   }, [notebookTracker]);
 
   // Execute a tool action
@@ -69,6 +76,10 @@ function App({ app, notebookTracker }: Props) {
         return toolFunctions.update_cell(parameters, notebookTracker, getNotebookContext);
       case 'execute_cell':
         return toolFunctions.execute_cell(parameters, notebookTracker, getNotebookContext);
+      case 'delete_cell':
+        return toolFunctions.delete_cell(parameters, notebookTracker, getNotebookContext);
+      case 'set_active_cell':
+        return toolFunctions.set_active_cell(parameters, notebookTracker, getNotebookContext);
       case 'get_notebook_info':
         return toolFunctions.get_notebook_info(parameters, notebookTracker, getNotebookContext);
       default:

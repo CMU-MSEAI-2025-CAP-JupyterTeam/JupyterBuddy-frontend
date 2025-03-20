@@ -22,7 +22,7 @@ interface Props {
 function App({ app, notebookTracker }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
-      role: 'system',
+      role: 'assistant',  // Changed from 'system' to 'assistant'
       content: 'Welcome to JupyterBuddy! How can I help you with your notebook?'
     }
   ]);
@@ -166,7 +166,7 @@ function App({ app, notebookTracker }: Props) {
       setMessages(prev => [
         ...prev,
         {
-          role: 'system',
+          role: 'assistant',  // Changed from 'system' to 'assistant'
           content: 'Connection error. Please check if the backend server is running.'
         }
       ]);
@@ -217,22 +217,18 @@ function App({ app, notebookTracker }: Props) {
 
   // Get role display name
   const getRoleDisplayName = (role: string) => {
-    switch (role) {
-      case 'user':
-        return 'You';
-      case 'assistant':
-        return 'JupyterBuddy';
-      case 'system':
-        return 'System';
-      default:
-        return role;
-    }
+    return role === 'user' ? 'You' : 'JupyterBuddy';
   };
+
+  // Filter to only show user and assistant messages in the UI
+  const visibleMessages = messages.filter(msg => 
+    msg.role === 'user' || msg.role === 'assistant'
+  );
 
   return (
     <div className="jp-JupyterBuddy-container">
       <div className="jp-JupyterBuddy-chatMessages">
-        {messages.map((msg, i) => (
+        {visibleMessages.map((msg, i) => (
           <div
             key={i}
             className={`jp-JupyterBuddy-message jp-JupyterBuddy-${msg.role}`}

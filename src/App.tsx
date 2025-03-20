@@ -155,7 +155,7 @@ function App({ app, notebookTracker }: Props) {
               }
             })
           );
-        }else {
+        } else {
           console.error('WebSocket not open, cannot send results');
         }
       }
@@ -215,6 +215,20 @@ function App({ app, notebookTracker }: Props) {
     [input, isProcessing, socket, getNotebookContext]
   );
 
+  // Get role display name
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'user':
+        return 'You';
+      case 'assistant':
+        return 'JupyterBuddy';
+      case 'system':
+        return 'System';
+      default:
+        return role;
+    }
+  };
+
   return (
     <div className="jp-JupyterBuddy-container">
       <div className="jp-JupyterBuddy-chatMessages">
@@ -224,18 +238,14 @@ function App({ app, notebookTracker }: Props) {
             className={`jp-JupyterBuddy-message jp-JupyterBuddy-${msg.role}`}
           >
             <div className="jp-JupyterBuddy-messageRole">
-              {msg.role === 'user'
-                ? 'You'
-                : msg.role === 'assistant'
-                  ? 'Assistant'
-                  : 'System'}
+              {getRoleDisplayName(msg.role)}
             </div>
             <div className="jp-JupyterBuddy-messageContent">{msg.content}</div>
           </div>
         ))}
         {isProcessing && (
           <div className="jp-JupyterBuddy-message jp-JupyterBuddy-assistant">
-            <div className="jp-JupyterBuddy-messageRole">Assistant</div>
+            <div className="jp-JupyterBuddy-messageRole">JupyterBuddy</div>
             <div className="jp-JupyterBuddy-messageContent">Thinking...</div>
           </div>
         )}

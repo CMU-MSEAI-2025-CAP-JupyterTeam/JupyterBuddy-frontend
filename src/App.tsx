@@ -116,7 +116,7 @@ function App({ app, notebookTracker }: Props) {
 
     ws.onmessage = event => {
       const data = JSON.parse(event.data);
-
+    
       if (data.message) {
         setMessages(prev => [
           ...prev,
@@ -132,16 +132,21 @@ function App({ app, notebookTracker }: Props) {
             { role: 'assistant', content: data.message }
           ]);
         }
-
+    
         const actionResults = data.actions.map((action: any) => {
           const { tool_name, parameters } = action;
-          return executeToolAction(tool_name, parameters);
+          console.log(`Executing tool: ${tool_name} with parameters:`, parameters);
+          const result = executeToolAction(tool_name, parameters);
+          console.log(`Tool execution result:`, result);
+          return result;
         });
-
+    
         const updatedContext = getNotebookContext();
-
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          socket.send(
+    
+        // Use ws instead of socket here
+        if (ws.readyState === WebSocket.OPEN) {
+          console.log('Sending action results back to backend:', actionResults);
+          ws.send(
             JSON.stringify({
               type: "action_result",
               data: {
@@ -150,6 +155,8 @@ function App({ app, notebookTracker }: Props) {
               }
             })
           );
+        }else {
+          console.error('WebSocket not open, cannot send results');
         }
       }
     };

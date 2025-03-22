@@ -95,12 +95,6 @@ function App({ app, notebookTracker }: Props) {
             notebookTracker,
             getNotebookContext
           );
-        case 'set_active_cell':
-          return toolFunctions.set_active_cell(
-            parameters,
-            notebookTracker,
-            getNotebookContext
-          );
         case 'get_notebook_info':
           return toolFunctions.get_notebook_info(
             parameters,

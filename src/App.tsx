@@ -39,7 +39,7 @@ function App({ app, notebookTracker }: Props) {
 
       const notebook = notebookPanel.content;
       const model = notebook.model;
-      
+
       if (!model) return null;
 
       // Use our enhanced notebook state helper
@@ -68,29 +68,56 @@ function App({ app, notebookTracker }: Props) {
   }, [notebookTracker]);
 
   // Execute a tool action
-  const executeToolAction = useCallback((toolName: string, parameters: any) => {
-    switch (toolName) {
-      case 'create_cell':
-        return toolFunctions.create_cell(parameters, notebookTracker, getNotebookContext);
-      case 'update_cell':
-        return toolFunctions.update_cell(parameters, notebookTracker, getNotebookContext);
-      case 'execute_cell':
-        return toolFunctions.execute_cell(parameters, notebookTracker, getNotebookContext);
-      case 'delete_cell':
-        return toolFunctions.delete_cell(parameters, notebookTracker, getNotebookContext);
-      case 'set_active_cell':
-        return toolFunctions.set_active_cell(parameters, notebookTracker, getNotebookContext);
-      case 'get_notebook_info':
-        return toolFunctions.get_notebook_info(parameters, notebookTracker, getNotebookContext);
-      default:
-        return {
-          action_type: toolName,
-          result: {},
-          success: false,
-          error: `Unknown tool: ${toolName}`
-        };
-    }
-  }, [notebookTracker, getNotebookContext]);
+  const executeToolAction = useCallback(
+    (toolName: string, parameters: any) => {
+      switch (toolName) {
+        case 'create_cell':
+          return toolFunctions.create_cell(
+            parameters,
+            notebookTracker,
+            getNotebookContext
+          );
+        case 'update_cell':
+          return toolFunctions.update_cell(
+            parameters,
+            notebookTracker,
+            getNotebookContext
+          );
+        case 'execute_cell':
+          return toolFunctions.execute_cell(
+            parameters,
+            notebookTracker,
+            getNotebookContext
+          );
+        case 'delete_cell':
+          return toolFunctions.delete_cell(
+            parameters,
+            notebookTracker,
+            getNotebookContext
+          );
+        case 'set_active_cell':
+          return toolFunctions.set_active_cell(
+            parameters,
+            notebookTracker,
+            getNotebookContext
+          );
+        case 'get_notebook_info':
+          return toolFunctions.get_notebook_info(
+            parameters,
+            notebookTracker,
+            getNotebookContext
+          );
+        default:
+          return {
+            action_type: toolName,
+            result: {},
+            success: false,
+            error: `Unknown tool: ${toolName}`
+          };
+      }
+    },
+    [notebookTracker, getNotebookContext]
+  );
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -104,19 +131,22 @@ function App({ app, notebookTracker }: Props) {
 
     ws.onopen = () => {
       console.log('WebSocket connection established');
+      const toolsPayload = {
+        type: 'register_tools',
+        data: getToolsJSON()
+      };
+      //log size
+      const toolsPayloadString = JSON.stringify(toolsPayload);
+      console.log('Payload size (characters):', toolsPayloadString.length);
+      console.log('Sending tool definitions:', toolsPayload);
       
-      // Send tool definitions to backend on connection establishment
-      ws.send(
-        JSON.stringify({
-          type: "register_tools",
-          data: getToolsJSON()
-        })
-      );
+      //send payload
+      ws.send(JSON.stringify(toolsPayload));
     };
 
     ws.onmessage = event => {
       const data = JSON.parse(event.data);
-    
+
       if (data.message) {
         setMessages(prev => [
           ...prev,
@@ -125,37 +155,40 @@ function App({ app, notebookTracker }: Props) {
         setIsProcessing(false);
       } else if (data.actions) {
         console.log('Received actions from LLM:', data.actions);
-        
+
         if (data.message) {
           setMessages(prev => [
             ...prev,
             { role: 'assistant', content: data.message }
           ]);
         }
-    
+
         const actionResults = data.actions.map((action: any) => {
           const { tool_name, parameters } = action;
-          console.log(`Executing tool: ${tool_name} with parameters:`, parameters);
+          console.log(
+            `Executing tool: ${tool_name} with parameters:`,
+            parameters
+          );
           const result = executeToolAction(tool_name, parameters);
           console.log(`Tool execution result:`, result);
           return result;
         });
-    
+
         const updatedContext = getNotebookContext();
-    
+
         // Use ws instead of socket here
         if (ws.readyState === WebSocket.OPEN) {
           console.log('Sending action results back to backend:', actionResults);
           ws.send(
             JSON.stringify({
-              type: "action_result",
+              type: 'action_result',
               data: {
                 results: actionResults,
                 notebook_context: updatedContext
               }
             })
           );
-        }else {
+        } else {
           console.error('WebSocket not open, cannot send results');
         }
       }
@@ -167,7 +200,8 @@ function App({ app, notebookTracker }: Props) {
         ...prev,
         {
           role: 'system',
-          content: 'Connection error. Please check if the backend server is running.'
+          content:
+            'Connection error. Please check if the backend server is running.'
         }
       ]);
     };
@@ -204,9 +238,15 @@ function App({ app, notebookTracker }: Props) {
 
       const notebookContext = getNotebookContext();
 
+
+      //log notebookContext size
+      const toolsPayloadString = JSON.stringify(notebookContext);
+      console.log('notebookContext size (characters):', toolsPayloadString.length);
+      console.log('notebookContext:', toolsPayloadString);
+
       socket.send(
         JSON.stringify({
-          type: "user_message",
+          type: 'user_message',
           data: content,
           notebook_context: notebookContext
         })

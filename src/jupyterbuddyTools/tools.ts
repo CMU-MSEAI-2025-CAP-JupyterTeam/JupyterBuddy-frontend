@@ -37,7 +37,6 @@ export interface ActionResult {
 
 // Enhanced notebook context to include more state information
 export interface NotebookContext {
-  path: string;
   title: string;
   cells: Array<{
     index: number;
@@ -45,12 +44,8 @@ export interface NotebookContext {
     content: string;
     execution_count?: number | null;
     outputs?: Array<any>;
-    is_active?: boolean;
   }>;
   activeCell: number;
-  isEmpty?: boolean;
-  hasActiveCell?: boolean;
-  totalCells?: number;
 }
 
 // Payload interfaces
@@ -72,18 +67,6 @@ export interface ExecuteCellPayload {
 export interface DeleteCellPayload {
   cell_index: number;
 }
-
-export interface GetNotebookInfoPayload {
-  include_cell_content?: boolean;
-  include_outputs?: boolean;
-}
-
-export interface SetActiveCellPayload {
-  cell_index: number;
-}
-
-// Type for getNotebookContext function
-export type GetNotebookContextFn = () => NotebookContext | null;
 
 // The tools available to JupyterBuddy - in OpenAI format
 export const jupyterBuddyTools: Tool[] = [
@@ -172,30 +155,6 @@ export const jupyterBuddyTools: Tool[] = [
         required: ['cell_index']
       }
     }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_notebook_info',
-      description:
-        'Gets comprehensive information about the current notebook structure and content.',
-      parameters: {
-        type: 'object',
-        properties: {
-          include_cell_content: {
-            type: 'boolean',
-            description:
-              'Whether to include the content of each cell in the response. Defaults to true.'
-          },
-          include_outputs: {
-            type: 'boolean',
-            description:
-              'Whether to include code cell outputs in the response. Defaults to true.'
-          }
-        },
-        required: []
-      }
-    }
   }
 ];
 
@@ -222,13 +181,75 @@ const executeCodeCell = (
   }
 };
 
+// Helper function to extract only necessary output information from a cell
+const getCellOutputInfo = (
+  notebookTracker: INotebookTracker,
+  cell_index: number
+): {
+  cell_type: string;
+  execution_count: number | null;
+  output_text: string | null;
+  error: string | null;
+} => {
+  try {
+    // Use the centralized notebookHelpers function to get cell info
+    const cellContext = notebookHelpers.getNotebookContext(
+      notebookTracker,
+      cell_index,
+      true
+    );
+
+    // If we couldn't get the context or no cells were returned
+    if (!cellContext || !cellContext.cells || cellContext.cells.length === 0) {
+      throw new Error(`Cell at index ${cell_index} not found`);
+    }
+
+    // Get the cell (there should only be one since we specified the index)
+    const cell = cellContext.cells[0];
+
+    // Initialize output variables
+    let output_text = null;
+    let error = null;
+
+    // Process outputs for code cells
+    if (cell.type === 'code' && cell.outputs && cell.outputs.length > 0) {
+      // Check for error outputs first
+      const errorOutput = cell.outputs.find((output: any) => output.error);
+
+      if (errorOutput) {
+        error = errorOutput.error;
+      } else {
+        // Look for text output
+        const textOutput = cell.outputs.find((output: any) => output.text);
+        if (textOutput) {
+          output_text = textOutput.text;
+        }
+      }
+    }
+
+    return {
+      cell_type: cell.type,
+      execution_count: cell.execution_count || null,
+      output_text,
+      error
+    };
+  } catch (error) {
+    console.error('Error getting cell output info:', error);
+    return {
+      cell_type: 'unknown',
+      execution_count: null,
+      output_text: null,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
+
 // Tool implementation functions
 export const toolFunctions = {
   // CREATE_CELL implementation
   create_cell: (
     payload: CreateCellPayload,
     notebookTracker: INotebookTracker,
-    getNotebookContext: GetNotebookContextFn
   ): ActionResult => {
     try {
       // Get cell type, content, and position from the payload
@@ -270,24 +291,24 @@ export const toolFunctions = {
       }
 
       // Execute the cell (both code and markdown cells)
-      let executionResult = executeCodeCell(
+      executeCodeCell(
         notebook,
         notebookTracker.currentWidget?.sessionContext,
         newIndex
       );
 
-      // Get updated notebook context (after execution for code cells)
-      const updatedContext = getNotebookContext();
+      // Get just the output information for this cell
+      const cellOutputInfo = getCellOutputInfo(notebookTracker, newIndex);
 
-      // Return success result with execution information
+      // Return success result with minimal information
       return {
         action_type: 'CREATE_CELL',
         result: {
           cell_index: newIndex,
           cell_type: cell_type,
-          auto_executed: true,
-          execution_result: executionResult,
-          notebook_context: updatedContext
+          execution_count: cellOutputInfo.execution_count,
+          output_text: cellOutputInfo.output_text,
+          error: cellOutputInfo.error
         },
         success: true
       };
@@ -306,7 +327,6 @@ export const toolFunctions = {
   update_cell: (
     payload: UpdateCellPayload,
     notebookTracker: INotebookTracker,
-    getNotebookContext: GetNotebookContextFn
   ): ActionResult => {
     try {
       const { cell_index, content } = payload;
@@ -320,28 +340,24 @@ export const toolFunctions = {
       if (cell && cell.sharedModel) {
         cell.sharedModel.setSource(content);
 
-        // Determine if this is a code cell
-        const cellType = cell.type;
-        const isCodeCell = cellType === 'code';
-
-        // Execute the cell (both code and markdown cells)
-        let executionResult = executeCodeCell(
+        // Execute the cell
+        executeCodeCell(
           notebook,
           notebookTracker.currentWidget?.sessionContext,
           cell_index
         );
 
-        // Get updated notebook context (after execution for code cells)
-        const updatedContext = getNotebookContext();
+        // Get just the output information for this cell
+        const cellOutputInfo = getCellOutputInfo(notebookTracker, cell_index);
 
         return {
           action_type: 'UPDATE_CELL',
           result: {
             cell_index,
-            cell_type: cellType,
-            auto_executed: true,
-            execution_result: executionResult,
-            notebook_context: updatedContext
+            cell_type: cellOutputInfo.cell_type,
+            execution_count: cellOutputInfo.execution_count,
+            output_text: cellOutputInfo.output_text,
+            error: cellOutputInfo.error
           },
           success: true
         };
@@ -363,7 +379,6 @@ export const toolFunctions = {
   execute_cell: (
     payload: ExecuteCellPayload,
     notebookTracker: INotebookTracker,
-    getNotebookContext: GetNotebookContextFn
   ): ActionResult => {
     try {
       const { cell_index } = payload;
@@ -372,18 +387,23 @@ export const toolFunctions = {
       const { notebook } = notebookHelpers.getNotebook(notebookTracker);
 
       // Execute the cell
-      const executionResult = executeCodeCell(
+      executeCodeCell(
         notebook,
         notebookTracker.currentWidget?.sessionContext,
         cell_index
       );
 
+      // Get just the output information for this cell
+      const cellOutputInfo = getCellOutputInfo(notebookTracker, cell_index);
+
       return {
         action_type: 'EXECUTE_CELL',
         result: {
           cell_index,
-          execution_result: executionResult,
-          notebook_context: getNotebookContext()
+          cell_type: cellOutputInfo.cell_type,
+          execution_count: cellOutputInfo.execution_count,
+          output_text: cellOutputInfo.output_text,
+          error: cellOutputInfo.error
         },
         success: true
       };
@@ -402,7 +422,6 @@ export const toolFunctions = {
   delete_cell: (
     payload: DeleteCellPayload,
     notebookTracker: INotebookTracker,
-    getNotebookContext: GetNotebookContextFn
   ): ActionResult => {
     try {
       const { cell_index } = payload;
@@ -417,7 +436,8 @@ export const toolFunctions = {
       return {
         action_type: 'DELETE_CELL',
         result: {
-          notebook_context: getNotebookContext()
+          cell_index,
+          message: `Cell at index ${cell_index} successfully deleted`
         },
         success: true
       };
@@ -430,61 +450,15 @@ export const toolFunctions = {
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
-  },
-
-  // GET_NOTEBOOK_INFO implementation
-  get_notebook_info: (
-    payload: GetNotebookInfoPayload,
-    notebookTracker: INotebookTracker,
-    getNotebookContext: GetNotebookContextFn
-  ): ActionResult => {
-    try {
-      const { include_cell_content = true, include_outputs = true } = payload;
-
-      // Get the notebook context
-      const notebookContext = getNotebookContext();
-
-      if (!notebookContext) {
-        throw new Error('No active notebook found');
-      }
-
-      // Modify the response based on include flags
-      let result = notebookContext;
-      if (!include_cell_content || !include_outputs) {
-        result = {
-          ...result,
-          cells: result.cells.map(cell => ({
-            ...cell,
-            content: include_cell_content ? cell.content : '',
-            outputs: include_outputs ? cell.outputs : []
-          }))
-        };
-      }
-
-      return {
-        action_type: 'GET_NOTEBOOK_INFO',
-        result: {
-          notebook_context: result
-        },
-        success: true
-      };
-    } catch (error) {
-      console.error('Error getting notebook info:', error);
-      return {
-        action_type: 'GET_NOTEBOOK_INFO',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
   }
 };
 
-// Helper function to create a tool execution function that can be used in a component
-export function createToolExecutor(
-  notebookTracker: INotebookTracker,
-  getNotebookContext: GetNotebookContextFn
-) {
+/**
+ * Creates a tool execution function that can be used to dynamically dispatch tool actions
+ * @param notebookTracker The notebook tracker instance
+ * @returns A function that executes the appropriate tool based on name
+ */
+export function createToolExecutor(notebookTracker: INotebookTracker) {
   return function executeAction(action: string, parameters: any): ActionResult {
     const toolFunction = toolFunctions[action as keyof typeof toolFunctions];
     if (!toolFunction) {
@@ -492,10 +466,11 @@ export function createToolExecutor(
         action_type: action,
         result: {},
         success: false,
-        error: `Unknown action: ${action}`
+        error: `Unknown tool: ${action}`
       };
     }
-
-    return toolFunction(parameters, notebookTracker, getNotebookContext);
+    
+    // Call the tool function with parameters and notebookTracker
+    return toolFunction(parameters, notebookTracker);
   };
 }

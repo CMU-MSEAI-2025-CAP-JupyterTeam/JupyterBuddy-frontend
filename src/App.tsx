@@ -1,3 +1,4 @@
+//App.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker } from '@jupyterlab/notebook';

@@ -164,20 +164,16 @@ export function getToolsJSON(): string {
 }
 
 // Helper function to execute a cell (code or markdown) and capture results
-const executeCodeCell = (
+const executeCodeCell = async (
   notebook: any,
   sessionContext: any,
   cell_index: number
-): any => {
+): Promise<void> => {
   try {
-    // Ensure the cell is active
     notebookHelpers.setActiveCellIndex(notebook, cell_index);
-
-    // Execute the cell
-    return NotebookActions.run(notebook, sessionContext);
+    await NotebookActions.run(notebook, sessionContext); // ✅ Wait for completion
   } catch (error) {
     console.error('Error executing cell:', error);
-    return null;
   }
 };
 
@@ -247,10 +243,10 @@ const getCellOutputInfo = (
 // Tool implementation functions
 export const toolFunctions = {
   // CREATE_CELL implementation
-  create_cell: (
+  create_cell: async (
     payload: CreateCellPayload,
-    notebookTracker: INotebookTracker,
-  ): ActionResult => {
+    notebookTracker: INotebookTracker
+  ): Promise<ActionResult> => {
     try {
       // Get cell type, content, and position from the payload
       const { cell_type, content, position } = payload;
@@ -324,10 +320,10 @@ export const toolFunctions = {
   },
 
   // UPDATE_CELL implementation
-  update_cell: (
+  update_cell: async (
     payload: UpdateCellPayload,
-    notebookTracker: INotebookTracker,
-  ): ActionResult => {
+    notebookTracker: INotebookTracker
+  ): Promise<ActionResult> => {
     try {
       const { cell_index, content } = payload;
 
@@ -376,10 +372,10 @@ export const toolFunctions = {
   },
 
   // EXECUTE_CELL implementation
-  execute_cell: (
+  execute_cell: async (
     payload: ExecuteCellPayload,
-    notebookTracker: INotebookTracker,
-  ): ActionResult => {
+    notebookTracker: INotebookTracker
+  ): Promise<ActionResult> => {
     try {
       const { cell_index } = payload;
 
@@ -419,10 +415,10 @@ export const toolFunctions = {
   },
 
   // DELETE_CELL implementation
-  delete_cell: (
+  delete_cell: async (
     payload: DeleteCellPayload,
-    notebookTracker: INotebookTracker,
-  ): ActionResult => {
+    notebookTracker: INotebookTracker
+  ): Promise<ActionResult> => {
     try {
       const { cell_index } = payload;
 
@@ -459,7 +455,10 @@ export const toolFunctions = {
  * @returns A function that executes the appropriate tool based on name
  */
 export function createToolExecutor(notebookTracker: INotebookTracker) {
-  return function executeAction(action: string, parameters: any): ActionResult {
+  return async function executeAction(
+    action: string,
+    parameters: any
+  ): Promise<ActionResult> {
     const toolFunction = toolFunctions[action as keyof typeof toolFunctions];
     if (!toolFunction) {
       return {
@@ -469,8 +468,8 @@ export function createToolExecutor(notebookTracker: INotebookTracker) {
         error: `Unknown tool: ${action}`
       };
     }
-    
-    // Call the tool function with parameters and notebookTracker
-    return toolFunction(parameters, notebookTracker);
+
+    // ✅ Await the tool function since it might be async
+    return await toolFunction(parameters, notebookTracker);
   };
 }

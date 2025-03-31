@@ -65,7 +65,7 @@ function App({ app, notebookTracker }: Props) {
       ws.send(JSON.stringify(toolsPayload));
     };
 
-    ws.onmessage = event => {
+    ws.onmessage = async event => {
       const data = JSON.parse(event.data);
 
       // Handle simple text messages
@@ -99,7 +99,7 @@ function App({ app, notebookTracker }: Props) {
         
         // Execute the single action
         try {
-          const result = executeToolAction(tool_name, parameters);
+          const result = await executeToolAction(tool_name, parameters);
           console.log(`Tool execution result:`, result);
           
           // Send back only the single result

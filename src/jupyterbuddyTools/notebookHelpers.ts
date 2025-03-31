@@ -6,57 +6,47 @@ import { INotebookTracker } from '@jupyterlab/notebook';
 import { ICodeCellModel } from '@jupyterlab/cells';
 
 /**
- * Internal helper function to simplify cell outputs to token-efficient formats
- * Not exported directly - used by getNotebookContext
+ * Simplifies notebook cell outputs into a JSON-friendly, token-efficient format.
+ * Preserves error details (`ename`, `evalue`) to support automatic error recovery.
  */
 function simplifyOutputs(outputs: any[]): any[] {
+  console.log("\n...........Full cell output...........");
+  console.log('Cell context:', outputs);
+  console.log("..............Full cell output...........");
+
   if (!outputs || outputs.length === 0) return [];
-  
+
   return outputs.map(output => {
-    // Extract only necessary output fields
-    const simplified: any = {};
-    
-    // Keep execution count if present
-    if (output.execution_count !== undefined) {
-      simplified.execution_count = output.execution_count;
-    }
-    
-    if (output.output_type) {
-      simplified.output_type = output.output_type;
-    }
-    
-    // Handle error outputs
-    if (output.output_type === 'error' || (output.ename && output.evalue)) {
-      simplified.error = output.ename && output.evalue 
-        ? `${output.ename}: ${output.evalue}` 
-        : 'Execution error';
+    const simplified: any = {
+      output_type: output.output_type
+    };
+
+    // Preserve error metadata for detection and recovery
+    if (output.output_type === 'error') {
+      simplified.ename = output.ename;
+      simplified.evalue = output.evalue;
+      simplified.traceback = output.traceback; // Optional: useful for debugging
       return simplified;
     }
-    
-    // Handle different output formats
-    if (output.data) {
-      // Try to extract plain text first
-      if (typeof output.data === 'object' && !Array.isArray(output.data)) {
-        const mimeBundle = output.data;
-        
-        // Prefer text/plain representation when available
-        if ('text/plain' in mimeBundle) {
-          const plainText = mimeBundle['text/plain'];
-          simplified.text = Array.isArray(plainText) ? plainText.join('\n') : String(plainText);
-          return simplified;
-        }
-      }
+
+    // Handle plain text outputs from `print()` or `display()`
+    if (output.data && output.data['text/plain']) {
+      const plainText = output.data['text/plain'];
+      simplified.text = Array.isArray(plainText)
+        ? plainText.join('\n')
+        : String(plainText);
+      return simplified;
     }
-    
-    // Handle stream output
+
+    // Handle stream output (e.g., stdout, stderr)
     if (output.text) {
-      simplified.text = Array.isArray(output.text) 
-        ? output.text.join('\n') 
+      simplified.text = Array.isArray(output.text)
+        ? output.text.join('\n')
         : String(output.text);
       return simplified;
     }
-    
-    // Handle unrecognized formats
+
+    // Catch-all fallback for unrecognized formats
     simplified.text = '[Output in non-text format]';
     return simplified;
   });

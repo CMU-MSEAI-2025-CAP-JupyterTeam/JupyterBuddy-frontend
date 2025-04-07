@@ -5,6 +5,53 @@ import { NotebookActions } from '@jupyterlab/notebook';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { ICodeCellModel } from '@jupyterlab/cells';
 
+/**
+ * Simplifies notebook cell outputs into a JSON-friendly, token-efficient format.
+ * Preserves error details (`ename`, `evalue`) to support automatic error recovery.
+ */
+function simplifyOutputs(outputs: any[]): any[] {
+  console.log("\n...........Full cell output...........");
+  console.log('Cell context:', outputs);
+  console.log("..............Full cell output...........");
+
+  if (!outputs || outputs.length === 0) return [];
+
+  return outputs.map(output => {
+    const simplified: any = {
+      output_type: output.output_type
+    };
+
+    // Preserve error metadata for detection and recovery
+    if (output.output_type === 'error') {
+      simplified.ename = output.ename;
+      simplified.evalue = output.evalue;
+      simplified.traceback = output.traceback; // Optional: useful for debugging
+      return simplified;
+    }
+
+    // Handle plain text outputs from `print()` or `display()`
+    if (output.data && output.data['text/plain']) {
+      const plainText = output.data['text/plain'];
+      simplified.text = Array.isArray(plainText)
+        ? plainText.join('\n')
+        : String(plainText);
+      return simplified;
+    }
+
+    // Handle stream output (e.g., stdout, stderr)
+    if (output.text) {
+      simplified.text = Array.isArray(output.text)
+        ? output.text.join('\n')
+        : String(output.text);
+      return simplified;
+    }
+
+    // Catch-all fallback for unrecognized formats
+    simplified.text = '[Output in non-text format]';
+    return simplified;
+  });
+}
+
 export const notebookHelpers = {
   // Get notebook and model, throwing error if not available
   getNotebook: (notebookTracker: INotebookTracker) => {
@@ -118,5 +165,67 @@ export const notebookHelpers = {
         };
       })
     };
+  },
+  
+  /**
+   * Get streamlined notebook context for the LLM
+   * @param notebookTracker The notebook tracker
+   * @param cellIndex Optional specific cell index to retrieve
+   * @param includeOutputs Whether to include cell outputs
+   * @returns Streamlined notebook context
+   */
+  getNotebookContext: (notebookTracker: INotebookTracker, cellIndex?: number, includeOutputs: boolean = true) => {
+    try {
+      const { notebook} = notebookHelpers.getNotebook(notebookTracker);
+      
+      // Get enhanced notebook state which already has the information we need
+      const state = notebookHelpers.getEnhancedNotebookState(notebook);
+      
+      // Create a streamlined version of cells
+      const processCell = (cell: any) => {
+        if (!cell) return null;
+        
+        // Base cell information
+        const cellData: any = {
+          index: cell.index,
+          type: cell.type,
+          content: cell.content,
+        };
+        
+        // Only add execution count for code cells
+        if (cell.type === 'code' && cell.executionCount !== null) {
+          cellData.execution_count = cell.executionCount;
+        }
+        
+        // Only include outputs if requested and if they exist
+        if (includeOutputs && cell.type === 'code' && cell.outputs && cell.outputs.length > 0) {
+          cellData.outputs = simplifyOutputs(cell.outputs);
+        }
+        
+        return cellData;
+      };
+      
+      // Get either one specific cell or all cells
+      let cells;
+      if (cellIndex !== undefined) {
+        // Validate cell index if provided
+        if (cellIndex < 0 || cellIndex >= state.cells.length) {
+          throw new Error(`Invalid cell index: ${cellIndex}. Valid range: 0-${state.cells.length - 1}`);
+        }
+        cells = [processCell(state.cells[cellIndex])].filter(Boolean);
+      } else {
+        cells = state.cells.map(processCell).filter(Boolean);
+      }
+      
+      // Return streamlined context
+      return {
+        title: notebook.title.label,
+        cells: cells,
+        activeCell: notebook.activeCellIndex
+      };
+    } catch (error) {
+      console.error('Error getting notebook context:', error);
+      return null;
+    }
   }
 };

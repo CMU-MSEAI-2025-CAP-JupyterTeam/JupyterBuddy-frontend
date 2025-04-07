@@ -1,3 +1,4 @@
+//App.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker } from '@jupyterlab/notebook';
@@ -6,7 +7,7 @@ import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
 import '../style/index.css';
 
 // Import tools from jupyterbuddyTools
-import { getToolsJSON, toolFunctions } from './jupyterbuddyTools/tools';
+import { getToolsJSON, createToolExecutor} from './jupyterbuddyTools/tools';
 
 // Define interfaces
 interface Message {
@@ -28,95 +29,14 @@ function App({ app, notebookTracker }: Props) {
   ]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [waitingForAction, setWaitingForAction] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Get current notebook context
-  const getNotebookContext = useCallback(() => {
-    try {
-      const notebookPanel = notebookTracker.currentWidget;
-      if (!notebookPanel) return null;
-
-      const notebook = notebookPanel.content;
-      const model = notebook.model;
-
-      if (!model) return null;
-
-      // Use our enhanced notebook state helper
-      const state = notebookHelpers.getEnhancedNotebookState(notebook);
-
-      return {
-        path: notebookPanel.context.path,
-        title: notebookPanel.title.label,
-        cells: state.cells.map(cell => ({
-          index: cell.index,
-          type: cell.type,
-          content: cell.content,
-          execution_count: cell.executionCount,
-          outputs: cell.outputs,
-          is_active: cell.isActive
-        })),
-        activeCell: notebook.activeCellIndex,
-        isEmpty: state.isEmpty,
-        hasActiveCell: state.hasActiveCell,
-        totalCells: state.totalCells
-      };
-    } catch (error) {
-      console.error('Error getting notebook context:', error);
-      return null;
-    }
-  }, [notebookTracker]);
-
-  // Execute a tool action
+  // Create the tool executor function using the helper
   const executeToolAction = useCallback(
-    (toolName: string, parameters: any) => {
-      switch (toolName) {
-        case 'create_cell':
-          return toolFunctions.create_cell(
-            parameters,
-            notebookTracker,
-            getNotebookContext
-          );
-        case 'update_cell':
-          return toolFunctions.update_cell(
-            parameters,
-            notebookTracker,
-            getNotebookContext
-          );
-        case 'execute_cell':
-          return toolFunctions.execute_cell(
-            parameters,
-            notebookTracker,
-            getNotebookContext
-          );
-        case 'delete_cell':
-          return toolFunctions.delete_cell(
-            parameters,
-            notebookTracker,
-            getNotebookContext
-          );
-        case 'set_active_cell':
-          return toolFunctions.set_active_cell(
-            parameters,
-            notebookTracker,
-            getNotebookContext
-          );
-        case 'get_notebook_info':
-          return toolFunctions.get_notebook_info(
-            parameters,
-            notebookTracker,
-            getNotebookContext
-          );
-        default:
-          return {
-            action_type: toolName,
-            result: {},
-            success: false,
-            error: `Unknown tool: ${toolName}`
-          };
-      }
-    },
-    [notebookTracker, getNotebookContext]
+    createToolExecutor(notebookTracker),
+    [notebookTracker]
   );
 
   // Auto-scroll to bottom of messages
@@ -135,27 +55,32 @@ function App({ app, notebookTracker }: Props) {
         type: 'register_tools',
         data: getToolsJSON()
       };
-      //log size
+      
+      // Log size
       const toolsPayloadString = JSON.stringify(toolsPayload);
       console.log('Payload size (characters):', toolsPayloadString.length);
       console.log('Sending tool definitions:', toolsPayload);
       
-      //send payload
+      // Send payload
       ws.send(JSON.stringify(toolsPayload));
     };
 
-    ws.onmessage = event => {
+    ws.onmessage = async event => {
       const data = JSON.parse(event.data);
 
-      if (data.message) {
+      // Handle simple text messages
+      if (data.message && !data.actions) {
         setMessages(prev => [
           ...prev,
           { role: 'assistant', content: data.message }
         ]);
         setIsProcessing(false);
-      } else if (data.actions) {
+      } 
+      // Handle actions from the LLM
+      else if (data.actions && data.actions.length > 0) {
         console.log('Received actions from LLM:', data.actions);
 
+        // If there's a message along with actions, display it
         if (data.message) {
           setMessages(prev => [
             ...prev,
@@ -163,33 +88,77 @@ function App({ app, notebookTracker }: Props) {
           ]);
         }
 
-        const actionResults = data.actions.map((action: any) => {
-          const { tool_name, parameters } = action;
-          console.log(
-            `Executing tool: ${tool_name} with parameters:`,
-            parameters
-          );
-          const result = executeToolAction(tool_name, parameters);
+        // Process only the first action (backend only processes one at a time)
+        const action = data.actions[0];
+        const { tool_name, parameters } = action;
+        
+        console.log(`Executing tool: ${tool_name} with parameters:`, parameters);
+        
+        // Set state to indicate we're waiting for an action to complete
+        setWaitingForAction(true);
+        
+        // Execute the single action
+        try {
+          const result = await executeToolAction(tool_name, parameters);
           console.log(`Tool execution result:`, result);
-          return result;
-        });
-
-        const updatedContext = getNotebookContext();
-
-        // Use ws instead of socket here
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log('Sending action results back to backend:', actionResults);
-          ws.send(
-            JSON.stringify({
-              type: 'action_result',
-              data: {
-                results: actionResults,
-                notebook_context: updatedContext
+          
+          // Send back only the single result
+          if (ws.readyState === WebSocket.OPEN) {
+            console.log('Sending action result back to backend:', result);
+            ws.send(
+              JSON.stringify({
+                type: 'action_result',
+                data: {
+                  results: [result],  // Always an array with a single result
+                  notebook_context: null  // No need to send full context after each action
+                }
+              })
+            );
+          } else {
+            console.error('WebSocket not open, cannot send results');
+            // If WebSocket is closed, show error and reset state
+            setMessages(prev => [
+              ...prev,
+              {
+                role: 'system',
+                content: 'Connection lost. Please refresh the page to reconnect.'
               }
-            })
-          );
-        } else {
-          console.error('WebSocket not open, cannot send results');
+            ]);
+            setWaitingForAction(false);
+            setIsProcessing(false);
+          }
+        } catch (error) {
+          console.error('Error executing tool action:', error);
+          
+          // Send back error result
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: 'action_result',
+                data: {
+                  results: [{
+                    action_type: tool_name,
+                    result: {},
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                  }],
+                  notebook_context: null
+                }
+              })
+            );
+          }
+          
+          // Show error to user
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'system',
+              content: `Error executing operation: ${error instanceof Error ? error.message : 'Unknown error'}`
+            }
+          ]);
+        } finally {
+          // Reset action waiting state after sending result
+          setWaitingForAction(false);
         }
       }
     };
@@ -204,10 +173,24 @@ function App({ app, notebookTracker }: Props) {
             'Connection error. Please check if the backend server is running.'
         }
       ]);
+      setIsProcessing(false);
+      setWaitingForAction(false);
     };
 
     ws.onclose = () => {
       console.log('WebSocket connection closed');
+      // If there's an ongoing action when connection closes, reset state
+      if (isProcessing || waitingForAction) {
+        setIsProcessing(false);
+        setWaitingForAction(false);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'system',
+            content: 'Connection closed. Please refresh the page to reconnect.'
+          }
+        ]);
+      }
     };
 
     setSocket(ws);
@@ -215,16 +198,18 @@ function App({ app, notebookTracker }: Props) {
     return () => {
       ws.close();
     };
-  }, [getNotebookContext, executeToolAction]);
+  }, [executeToolAction]);
 
   // Send a message to the backend
   const sendMessage = useCallback(
     (event: React.FormEvent) => {
       event.preventDefault();
 
+      // Don't send if input is empty, already processing, or WebSocket is not ready
       if (
         !input.trim() ||
         isProcessing ||
+        waitingForAction ||  // Add check for waitingForAction
         !socket ||
         socket.readyState !== WebSocket.OPEN
       ) {
@@ -236,13 +221,12 @@ function App({ app, notebookTracker }: Props) {
       setIsProcessing(true);
       setMessages(prev => [...prev, { role: 'user', content }]);
 
-      const notebookContext = getNotebookContext();
+      // Get full notebook context for user message
+      const notebookContext = notebookHelpers.getNotebookContext(notebookTracker);
 
-
-      //log notebookContext size
-      const toolsPayloadString = JSON.stringify(notebookContext);
-      console.log('notebookContext size (characters):', toolsPayloadString.length);
-      console.log('notebookContext:', toolsPayloadString);
+      // Log notebookContext size
+      const contextPayloadString = JSON.stringify(notebookContext);
+      console.log('notebookContext size (characters):', contextPayloadString.length);
 
       socket.send(
         JSON.stringify({
@@ -252,7 +236,7 @@ function App({ app, notebookTracker }: Props) {
         })
       );
     },
-    [input, isProcessing, socket, getNotebookContext]
+    [input, isProcessing, waitingForAction, socket, notebookTracker]
   );
 
   return (
@@ -279,6 +263,12 @@ function App({ app, notebookTracker }: Props) {
             <div className="jp-JupyterBuddy-messageContent">Thinking...</div>
           </div>
         )}
+        {waitingForAction && (
+          <div className="jp-JupyterBuddy-message jp-JupyterBuddy-system">
+            <div className="jp-JupyterBuddy-messageRole">System</div>
+            <div className="jp-JupyterBuddy-messageContent">Executing notebook operation...</div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -288,10 +278,13 @@ function App({ app, notebookTracker }: Props) {
           placeholder="Ask a question about your notebook..."
           value={input}
           onChange={e => setInput(e.target.value)}
-          disabled={isProcessing}
+          disabled={isProcessing || waitingForAction}
           className="jp-JupyterBuddy-input"
         />
-        <Button type="submit" disabled={isProcessing || !input.trim()}>
+        <Button 
+          type="submit" 
+          disabled={isProcessing || waitingForAction || !input.trim()}
+        >
           Send
         </Button>
       </form>

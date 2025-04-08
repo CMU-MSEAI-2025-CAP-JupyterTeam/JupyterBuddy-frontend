@@ -7,7 +7,7 @@ import { ICodeCellModel } from '@jupyterlab/cells';
 
 /**
  * Simplifies notebook cell outputs into a JSON-friendly, token-efficient format.
- * Preserves error details (`ename`, `evalue`) to support automatic error recovery.
+ * Preserves error details (`ename`, `evalue`) to support automatic error recovery. (2)
  */
 function simplifyOutputs(outputs: any[]): any[] {
   console.log("\n...........Full cell output...........");
@@ -142,9 +142,11 @@ export const notebookHelpers = {
     return notebook.activeCellIndex;
   },
 
-  // Get enhanced notebook state including execution info and outputs
+  // Get enhanced notebook state including execution info and outputs (1)
   getEnhancedNotebookState: (notebook: any) => {
     const model = notebook.model;
+    console.log("\n...........  print notebook state...........");
+    console.log('Notebook state:', model);
     
     return {
       activeCellIndex: notebook.activeCellIndex,

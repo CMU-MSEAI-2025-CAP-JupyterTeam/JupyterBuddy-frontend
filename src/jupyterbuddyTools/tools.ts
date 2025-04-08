@@ -68,6 +68,47 @@ export interface DeleteCellPayload {
   cell_index: number;
 }
 
+/**
+ * Creates a standardized cell operation result
+ * @param action_type The type of action performed (CREATE_CELL, UPDATE_CELL, etc.)
+ * @param cell_index The index of the cell that was operated on
+ * @param cellOutputInfo The output information from the cell
+ * @param cell_type Optional cell type (only needed for CREATE_CELL)
+ */
+const createCellOperationResult = (
+  action_type: string,
+  cell_index: number,
+  cellOutputInfo: any,
+  cell_type?: string
+): ActionResult => {
+  return {
+    action_type,
+    result: {
+      cell_index,
+      cell_type: cell_type || cellOutputInfo.cell_type,
+      ...cellOutputInfo
+    },
+    success: true
+  };
+};
+
+/**
+ * Creates a standardized error result for tool operations
+ * @param action_type The type of action that failed
+ * @param error The error that occurred
+ */
+const createErrorResult = (
+  action_type: string,
+  error: unknown
+): ActionResult => {
+  return {
+    action_type,
+    result: {},
+    success: false,
+    error: error instanceof Error ? error.message : 'Unknown error'
+  };
+};
+
 // The tools available to JupyterBuddy - in OpenAI format
 export const jupyterBuddyTools: Tool[] = [
   {
@@ -177,7 +218,7 @@ const executeCodeCell = async (
   }
 };
 
-// Helper function to extract only necessary output information from a cell
+// Helper function to extract only necessary output information from a cell (3)
 const getCellOutputInfo = (
   notebookTracker: INotebookTracker,
   cell_index: number
@@ -186,6 +227,7 @@ const getCellOutputInfo = (
   execution_count: number | null;
   output_text: string | null;
   error: string | null;
+  status: 'success' | 'error';
 } => {
   try {
     // Use the centralized notebookHelpers function to get cell info
@@ -206,14 +248,17 @@ const getCellOutputInfo = (
     // Initialize output variables
     let output_text = null;
     let error = null;
+    let status: 'success' | 'error' = 'success';
 
     // Process outputs for code cells
     if (cell.type === 'code' && cell.outputs && cell.outputs.length > 0) {
-      // Check for error outputs first
-      const errorOutput = cell.outputs.find((output: any) => output.error);
+      // Check for error outputs first - look for output_type === 'error'
+      const errorOutput = cell.outputs.find((output: any) => output.output_type === 'error');
 
       if (errorOutput) {
-        error = errorOutput.error;
+        // Format error message to include both error name and value
+        error = `${errorOutput.ename}: ${errorOutput.evalue}`;
+        status = 'error';
       } else {
         // Look for text output
         const textOutput = cell.outputs.find((output: any) => output.text);
@@ -227,7 +272,8 @@ const getCellOutputInfo = (
       cell_type: cell.type,
       execution_count: cell.execution_count || null,
       output_text,
-      error
+      error,
+      status
     };
   } catch (error) {
     console.error('Error getting cell output info:', error);
@@ -235,7 +281,8 @@ const getCellOutputInfo = (
       cell_type: 'unknown',
       execution_count: null,
       output_text: null,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      status: 'error'
     };
   }
 };
@@ -287,7 +334,7 @@ export const toolFunctions = {
       }
 
       // Execute the cell (both code and markdown cells)
-      executeCodeCell(
+      await executeCodeCell(
         notebook,
         notebookTracker.currentWidget?.sessionContext,
         newIndex
@@ -296,29 +343,18 @@ export const toolFunctions = {
       // Get just the output information for this cell
       const cellOutputInfo = getCellOutputInfo(notebookTracker, newIndex);
 
-      // Return success result with minimal information
-      return {
-        action_type: 'CREATE_CELL',
-        result: {
-          cell_index: newIndex,
-          cell_type: cell_type,
-          execution_count: cellOutputInfo.execution_count,
-          output_text: cellOutputInfo.output_text,
-          error: cellOutputInfo.error
-        },
-        success: true
-      };
+      // Return standardized result
+      return createCellOperationResult(
+        'CREATE_CELL',
+        newIndex,
+        cellOutputInfo,
+        cell_type
+      );
     } catch (error) {
       console.error('Error creating cell:', error);
-      return {
-        action_type: 'CREATE_CELL',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      return createErrorResult('CREATE_CELL', error);
     }
   },
-
   // UPDATE_CELL implementation
   update_cell: async (
     payload: UpdateCellPayload,
@@ -337,7 +373,7 @@ export const toolFunctions = {
         cell.sharedModel.setSource(content);
 
         // Execute the cell
-        executeCodeCell(
+        await executeCodeCell(
           notebook,
           notebookTracker.currentWidget?.sessionContext,
           cell_index
@@ -346,31 +382,19 @@ export const toolFunctions = {
         // Get just the output information for this cell
         const cellOutputInfo = getCellOutputInfo(notebookTracker, cell_index);
 
-        return {
-          action_type: 'UPDATE_CELL',
-          result: {
-            cell_index,
-            cell_type: cellOutputInfo.cell_type,
-            execution_count: cellOutputInfo.execution_count,
-            output_text: cellOutputInfo.output_text,
-            error: cellOutputInfo.error
-          },
-          success: true
-        };
+        return createCellOperationResult(
+          'UPDATE_CELL',
+          cell_index,
+          cellOutputInfo
+        );
       } else {
         throw new Error(`Could not access cell at index ${cell_index}`);
       }
     } catch (error) {
       console.error('Error updating cell:', error);
-      return {
-        action_type: 'UPDATE_CELL',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      return createErrorResult('UPDATE_CELL', error);
     }
   },
-
   // EXECUTE_CELL implementation
   execute_cell: async (
     payload: ExecuteCellPayload,
@@ -383,7 +407,7 @@ export const toolFunctions = {
       const { notebook } = notebookHelpers.getNotebook(notebookTracker);
 
       // Execute the cell
-      executeCodeCell(
+      await executeCodeCell(
         notebook,
         notebookTracker.currentWidget?.sessionContext,
         cell_index
@@ -392,25 +416,14 @@ export const toolFunctions = {
       // Get just the output information for this cell
       const cellOutputInfo = getCellOutputInfo(notebookTracker, cell_index);
 
-      return {
-        action_type: 'EXECUTE_CELL',
-        result: {
-          cell_index,
-          cell_type: cellOutputInfo.cell_type,
-          execution_count: cellOutputInfo.execution_count,
-          output_text: cellOutputInfo.output_text,
-          error: cellOutputInfo.error
-        },
-        success: true
-      };
+      return createCellOperationResult(
+        'EXECUTE_CELL',
+        cell_index,
+        cellOutputInfo
+      );
     } catch (error) {
       console.error('Error executing cell:', error);
-      return {
-        action_type: 'EXECUTE_CELL',
-        result: {},
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      return createErrorResult('EXECUTE_CELL', error);
     }
   },
 
@@ -469,7 +482,7 @@ export function createToolExecutor(notebookTracker: INotebookTracker) {
       };
     }
 
-    // ✅ Await the tool function since it might be async
+    // Await the tool function since it might be async
     return await toolFunction(parameters, notebookTracker);
   };
 }

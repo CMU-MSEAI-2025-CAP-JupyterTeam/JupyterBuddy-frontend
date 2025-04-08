@@ -4,7 +4,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background-color: var(--jp-layout-color1);
+  background-color:aqua;
   color: var(--jp-ui-font-color1);
 }
 
@@ -33,7 +33,7 @@
 .jp-JupyterBuddy-user {
   align-self: flex-end;
   background-color: var(--jp-brand-color1);
-  color: white;
+  color: rgb(255, 255, 255);
   margin-left: auto;
 }
 

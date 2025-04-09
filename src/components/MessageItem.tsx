@@ -49,6 +49,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               }) {
               
                 const match = /language-(\w+)/.exec(className || '');
+
                 const Syntax = SyntaxHighlighter as unknown as React.FC<any>;
                 return !inline && match ? (
                   <Syntax

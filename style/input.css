@@ -1,7 +1,5 @@
 /* style/input.css */
-
-@import "tailwindcss/preflight";   /* replaces @tailwind base */
-@import "tailwindcss/utilities";   /* replaces both components + utilities */
+@import "tailwindcss";
 
 /* Optional custom styles */
 body {

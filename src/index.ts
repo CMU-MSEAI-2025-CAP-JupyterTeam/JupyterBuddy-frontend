@@ -1,7 +1,9 @@
+//index.ts
 import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from "@jupyterlab/application";
+
 
 import { INotebookTracker } from "@jupyterlab/notebook";
 import { AppWidget } from "./widgets/AppWidget";

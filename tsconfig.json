@@ -19,14 +19,15 @@
     "strict": true,
     "strictNullChecks": true,
     "target": "ES2018",
-    "types": ["jest"]
+    "types": ["jest"],
+    "skipLibCheck": true
   },
 
   "include": [
     "src/**/*",
     "src/**/*.ts",
     "src/**/*.tsx"
-  ],
+, "tailwind.config.js"  ],
   "exclude": [
     "node_modules",
     "dist"  // Optional, if you have a build folder

@@ -1,15 +1,16 @@
 //App.tsx
-import '../style/index.css';
-import React, { useState, useEffect, useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
 import Chat from './components/Chat';
-import type { Message, UploadedFile} from './types';
+import { Bot, Sun, Moon } from 'lucide-react';
+import type { Message } from './types';
+
+import '../style/index.css';
 
 // Import tools from jupyterbuddyTools
-import { getToolsJSON, createToolExecutor} from './jupyterbuddyTools/tools';
-
+import { getToolsJSON, createToolExecutor } from './jupyterbuddyTools/tools';
 
 interface Props {
   app: JupyterFrontEnd;
@@ -21,20 +22,43 @@ function App({ app, notebookTracker }: Props) {
     {
       id: 'system-welcome',
       role: 'system',
-      content: 'Welcome to JupyterBuddy! How can I help you with your notebook?',
-      timestamp: new Date(),
+      content:
+        'Welcome to JupyterBuddy! How can I help you with your notebook?',
+      timestamp: new Date()
     }
   ]);
-  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitingForAction, setWaitingForAction] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   // Create the tool executor function using the helper
-  const executeToolAction = useCallback(
-    createToolExecutor(notebookTracker),
-    [notebookTracker]
-  );
+  const executeToolAction = useCallback(createToolExecutor(notebookTracker), [
+    notebookTracker
+  ]);
+
+  // Dark mode ci=ontrol
+  const [isDark, setIsDark] = React.useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return (
+      savedTheme === 'dark' ||
+      (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    );
+  });
+
+  const toggleTheme = () => {
+    const newTheme = !isDark;
+    setIsDark(newTheme);
+
+    // Update DOM and localStorage
+    const root = document.documentElement;
+    if (newTheme) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -47,12 +71,12 @@ function App({ app, notebookTracker }: Props) {
         type: 'register_tools',
         data: getToolsJSON()
       };
-      
+
       // Log size
       const toolsPayloadString = JSON.stringify(toolsPayload);
       console.log('Payload size (characters):', toolsPayloadString.length);
       console.log('Sending tool definitions:', toolsPayload);
-      
+
       // Send payload
       ws.send(JSON.stringify(toolsPayload));
     };
@@ -71,9 +95,9 @@ function App({ app, notebookTracker }: Props) {
             timestamp: new Date()
           }
         ]);
-        
+
         setIsProcessing(false);
-      } 
+      }
       // Handle actions from the LLM
       else if (data.actions && data.actions.length > 0) {
         console.log('Received actions from LLM:', data.actions);
@@ -89,23 +113,25 @@ function App({ app, notebookTracker }: Props) {
               timestamp: new Date()
             }
           ]);
-          
         }
 
         // Process only the first action (backend only processes one at a time)
         const action = data.actions[0];
         const { tool_name, parameters } = action;
-        
-        console.log(`Executing tool: ${tool_name} with parameters:`, parameters);
-        
+
+        console.log(
+          `Executing tool: ${tool_name} with parameters:`,
+          parameters
+        );
+
         // Set state to indicate we're waiting for an action to complete
         setWaitingForAction(true);
-        
+
         // Execute the single action
         try {
           const result = await executeToolAction(tool_name, parameters);
           console.log(`Tool execution result:`, result);
-          
+
           // Send back only the single result
           if (ws.readyState === WebSocket.OPEN) {
             console.log('Sending action result back to backend:', result);
@@ -113,8 +139,8 @@ function App({ app, notebookTracker }: Props) {
               JSON.stringify({
                 type: 'action_result',
                 data: {
-                  results: [result],  // Always an array with a single result
-                  notebook_context: null  // No need to send full context after each action
+                  results: [result], // Always an array with a single result
+                  notebook_context: null // No need to send full context after each action
                 }
               })
             );
@@ -126,34 +152,38 @@ function App({ app, notebookTracker }: Props) {
               {
                 id: Date.now().toString(),
                 role: 'system',
-                content: 'Connection lost. Please refresh the page to reconnect.',
+                content:
+                  'Connection lost. Please refresh the page to reconnect.',
                 timestamp: new Date()
               }
-            ]);            
+            ]);
             setWaitingForAction(false);
             setIsProcessing(false);
           }
         } catch (error) {
           console.error('Error executing tool action:', error);
-          
+
           // Send back error result
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(
               JSON.stringify({
                 type: 'action_result',
                 data: {
-                  results: [{
-                    action_type: tool_name,
-                    result: {},
-                    success: false,
-                    error: error instanceof Error ? error.message : 'Unknown error'
-                  }],
+                  results: [
+                    {
+                      action_type: tool_name,
+                      result: {},
+                      success: false,
+                      error:
+                        error instanceof Error ? error.message : 'Unknown error'
+                    }
+                  ],
                   notebook_context: null
                 }
               })
             );
           }
-          
+
           // Show error to user
           setMessages(prev => [
             ...prev,
@@ -164,7 +194,6 @@ function App({ app, notebookTracker }: Props) {
               timestamp: new Date()
             }
           ]);
-          
         } finally {
           // Reset action waiting state after sending result
           setWaitingForAction(false);
@@ -179,11 +208,12 @@ function App({ app, notebookTracker }: Props) {
         {
           id: Date.now().toString(),
           role: 'system',
-          content: 'Connection error. Please check if the backend server is running.',
+          content:
+            'Connection error. Please check if the backend server is running.',
           timestamp: new Date()
         }
       ]);
-      
+
       setIsProcessing(false);
       setWaitingForAction(false);
     };
@@ -203,7 +233,6 @@ function App({ app, notebookTracker }: Props) {
             timestamp: new Date()
           }
         ]);
-        
       }
     };
 
@@ -214,120 +243,106 @@ function App({ app, notebookTracker }: Props) {
     };
   }, [executeToolAction]);
 
-
-  // ✅ This goes right after
-  useEffect(() => {
-    console.log('[Debug] Current uploaded files:', files);
-  }, [files]);
-
-// Handles sending a user message to the backend (LLM agent)
-// Called from <Chat /> when the user submits input
-const handleSendMessage = useCallback(
-  (content: string) => {
-    // Prevent sending if conditions are not ideal
-    if (
-      !content.trim() ||                  // Ignore empty messages
-      isProcessing ||                    // Wait if already processing
-      waitingForAction ||                // Wait if agent is executing a notebook action
-      !socket ||                         // Ensure WebSocket is available
-      socket.readyState !== WebSocket.OPEN // Ensure WebSocket is open
-    ) {
-      return;
-    }
-
-    // Mark as processing so UI can show loading state
-    setIsProcessing(true);
-
-    // Immediately show the user's message in the chat UI
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),       // Unique ID (timestamp)
-        role: 'user',
-        content: content.trim(),
-        timestamp: new Date()
+  // Handles sending a user message to the backend (LLM agent)
+  // Called from <Chat /> when the user submits input
+  const handleSendMessage = useCallback(
+    (content: string) => {
+      // Prevent sending if conditions are not ideal
+      if (
+        !content.trim() || // Ignore empty messages
+        isProcessing || // Wait if already processing
+        waitingForAction || // Wait if agent is executing a notebook action
+        !socket || // Ensure WebSocket is available
+        socket.readyState !== WebSocket.OPEN // Ensure WebSocket is open
+      ) {
+        return;
       }
-    ]);
 
-    // Extract the notebook context (code, variables, etc.)
-    const notebookContext = notebookHelpers.getNotebookContext(notebookTracker);
+      // Mark as processing so UI can show loading state
+      setIsProcessing(true);
 
-    // Log the size of the notebook context for debugging
-    const contextPayloadString = JSON.stringify(notebookContext);
-    console.log('notebookContext size (characters):', contextPayloadString.length);
+      // Immediately show the user's message in the chat UI
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(), // Unique ID (timestamp)
+          role: 'user',
+          content: content.trim(),
+          timestamp: new Date()
+        }
+      ]);
 
-    // Send the message and notebook context to the backend agent
-    socket.send(
-      JSON.stringify({
-        type: 'user_message',
-        data: content.trim(),            // The user’s message
-        notebook_context: notebookContext
-      })
-    );
-  },
-  [isProcessing, waitingForAction, socket, notebookTracker]
-);
+      // Extract the notebook context (code, variables, etc.)
+      const notebookContext =
+        notebookHelpers.getNotebookContext(notebookTracker);
 
+      // Log the size of the notebook context for debugging
+      const contextPayloadString = JSON.stringify(notebookContext);
+      console.log(
+        'notebookContext size (characters):',
+        contextPayloadString.length
+      );
 
-  const handleFilesAdded = (newFiles: File[]) => {
-    const processedFiles: UploadedFile[] = newFiles.map(file => ({
-      id: Date.now().toString() + Math.random().toString(36).substring(2),
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      classification: 'processing',
-      status: 'uploading',
-      progress: 0,
-    }));
+      // Send the message and notebook context to the backend agent
+      socket.send(
+        JSON.stringify({
+          type: 'user_message',
+          data: content.trim(), // The user’s message
+          notebook_context: notebookContext
+        })
+      );
+    },
+    [isProcessing, waitingForAction, socket, notebookTracker]
+  );
 
-    setFiles(prev => [...prev, ...processedFiles]);
-
-    // Simulate upload progress (we'll later replace this with real classification + backend call)
-    processedFiles.forEach(file => {
-      const timer = setInterval(() => {
-        setFiles(prev =>
-          prev.map(f => {
-            if (f.id === file.id) {
-              const progress = (f.progress || 0) + 20;
-              if (progress >= 100) {
-                clearInterval(timer);
-                const isDataset = file.name.endsWith('.csv') || file.name.endsWith('.xlsx');
-                return {
-                  ...f,
-                  progress: 100,
-                  classification: isDataset ? 'dataset' : 'context',
-                  status: 'ready',
-                };
-              }
-              return { ...f, progress };
-            }
-            return f;
-          })
-        );
-      }, 500);
-    });
-
-    // Add chat message announcing upload
-    const fileNames = newFiles.map(f => f.name).join(', ');
-    setMessages(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        role: 'user',
-        content: `Uploaded: ${fileNames}`,
-        timestamp: new Date(),
-      },
-    ]);
+  const handleFilesAdded = (files: File[]) => {
+    console.log('Files added (not yet handled):', files);
   };
 
-
   return (
-    <Chat
-  messages={messages}
-  onSendMessage={handleSendMessage}
-  onFilesAdded={handleFilesAdded}
-  isProcessing={isProcessing}
-/>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="h-screen flex flex-col">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <Bot className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+              </div>
+              <h1 className="text-xl font-semibold">JupyterBuddy</h1>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Toggle dark mode"
+            >
+              {isDark ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+        </header>
+        <div className="p-4">
+          <div className="bg-white text-black dark:bg-gray-900 dark:text-white p-4 rounded">
+            This box should change when you toggle dark mode
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0">
+            <Chat
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              onFilesAdded={handleFilesAdded}
+              isProcessing={isProcessing}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

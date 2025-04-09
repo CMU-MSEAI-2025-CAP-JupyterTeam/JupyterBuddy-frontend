@@ -2,6 +2,10 @@
     "name": "jupyterbuddy",
     "version": "0.1.0",
     "description": "A JupyterLab extension that enables users to perform AI/ML workflows seamlessly via a natural language conversational interface integrated directly into JupyterLab.",
+    "resolutions": {
+        "@lumino/widgets": "2.7.0",
+        "@jupyter-widgets/base": "^6.0.10"
+    },
     "keywords": [
         "jupyter",
         "jupyterlab",
@@ -60,6 +64,7 @@
     "dependencies": {
         "@jupyter-widgets/base": "^6.0.10",
         "@jupyterlab/application": "^4.0.0",
+        "@lumino/widgets": "^2.7.0",
         "lucide-react": "^0.487.0",
         "react-markdown": "^10.1.0",
         "react-syntax-highlighter": "^15.6.1",
@@ -104,7 +109,19 @@
     },
     "jupyterlab": {
         "extension": true,
-        "outputDir": "jupyterBuddy/labextension"
+        "outputDir": "jupyterBuddy/labextension",
+        "sharedPackages": {
+            "@lumino/widgets": {
+                "singleton": true,
+                "requiredVersion": "^2.7.0",
+                "strictVersion": false
+            },
+            "@jupyter-widgets/base": {
+                "singleton": true,
+                "requiredVersion": "^6.0.0",
+                "strictVersion": false
+            }
+        }
     },
     "eslintIgnore": [
         "node_modules",

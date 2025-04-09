@@ -39,16 +39,13 @@ function App({ app, notebookTracker }: Props) {
   // Dark mode ci=ontrol
   const [isDark, setIsDark] = React.useState(() => {
     const savedTheme = localStorage.getItem('theme');
-    return (
-      savedTheme === 'dark' ||
-      (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    );
+    return savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
 
   const toggleTheme = () => {
     const newTheme = !isDark;
     setIsDark(newTheme);
-
+    
     // Update DOM and localStorage
     const root = document.documentElement;
     if (newTheme) {
@@ -59,6 +56,7 @@ function App({ app, notebookTracker }: Props) {
       localStorage.setItem('theme', 'light');
     }
   };
+  
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -300,8 +298,8 @@ function App({ app, notebookTracker }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <div className="h-screen flex flex-col">
+    <div className="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="h-full flex flex-col">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 py-3 flex items-center justify-between">
@@ -324,11 +322,6 @@ function App({ app, notebookTracker }: Props) {
             </button>
           </div>
         </header>
-        <div className="p-4">
-          <div className="bg-white text-black dark:bg-gray-900 dark:text-white p-4 rounded">
-            This box should change when you toggle dark mode
-          </div>
-        </div>
 
         {/* Main content */}
         <div className="flex-1 flex overflow-hidden">

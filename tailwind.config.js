@@ -1,15 +1,14 @@
+// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
-export default{
-  content: [
-    './src/**/*.{js,jsx,ts,tsx}',
-    './lib/**/*.{js,jsx}'
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-  important: true, // Make all Tailwind utilities use !important
-  corePlugins: {
-    preflight: false, // Avoid conflicts with JupyterLab styles
-  }
+export const content = [
+  './src/**/*.{js,ts,jsx,tsx}',
+  './lib/**/*.{js,ts,jsx,tsx}'
+];
+export const theme = {
+  extend: {}
+};
+export const darkMode = 'class';
+export const important = true;
+export const corePlugins = {
+  preflight: false
 };

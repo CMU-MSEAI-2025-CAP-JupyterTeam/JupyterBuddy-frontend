@@ -1,0 +1,9 @@
+/* style/input.css */
+
+@import "tailwindcss/preflight";   /* replaces @tailwind base */
+@import "tailwindcss/utilities";   /* replaces both components + utilities */
+
+/* Optional custom styles */
+body {
+  font-family: sans-serif;
+}

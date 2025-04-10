@@ -1,5 +1,5 @@
 import React from 'react';
-import { Message, PendingFile } from '../types';
+import { Message, PendingFile, UploadedFile } from '../types';
 import MessageItem from './MessageItem';
 import {
   SendHorizontal,
@@ -14,7 +14,7 @@ const LONG_MESSAGE_THRESHOLD = 500; // Characters
 
 interface ChatProps {
   messages: Message[];
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, files: UploadedFile[]) => void; // updated
   onFilesAdded: (files: File[]) => void;
   isProcessing: boolean;
 }
@@ -31,6 +31,7 @@ const Chat: React.FC<ChatProps> = ({
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
+  const [readyFiles, setReadyFiles] = React.useState<UploadedFile[]>([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -39,6 +40,17 @@ const Chat: React.FC<ChatProps> = ({
   React.useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Track uploaded files
+  React.useEffect(() => {
+    const newReady = pendingFiles
+      .filter(f => f.status === 'ready')
+      .map(f => ({
+        ...f,
+        notebookPath: `data/${f.name}` // match what's created in saveDatasetToNotebook
+      }));
+    setReadyFiles(newReady);
+  }, [pendingFiles]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +67,7 @@ const Chat: React.FC<ChatProps> = ({
       }
 
       if (input.trim() && !pendingFiles.some(pf => pf.content === input)) {
-        onSendMessage(input);
+        onSendMessage(input, readyFiles);
       }
 
       setInput('');
@@ -239,7 +251,9 @@ const Chat: React.FC<ChatProps> = ({
           <button
             type="submit"
             disabled={
-              (!input.trim() && pendingFiles.length === 0) || isProcessing
+              (!input.trim() && pendingFiles.length === 0) ||
+              isProcessing ||
+              pendingFiles.some(f => f.status !== 'ready')
             }
             className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >

@@ -6,6 +6,7 @@ import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
 import Chat from './components/Chat';
 import { Bot, Sun, Moon } from 'lucide-react';
 import type { Message, UploadedFile } from './types';
+import { saveDatasetToNotebook } from './jupyterbuddyTools/notebookHelpers';
 
 import '../style/index.css';
 
@@ -28,7 +29,9 @@ function App({ app, notebookTracker }: Props) {
     }
   ]);
   const [files, setFiles] = useState<UploadedFile[]>([]);
-  {files.length > 0 && null}
+  {
+    files.length > 0 && null;
+  }
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitingForAction, setWaitingForAction] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -297,19 +300,19 @@ function App({ app, notebookTracker }: Props) {
     [isProcessing, waitingForAction, socket, notebookTracker]
   );
 
-  const handleFilesAdded = (newFiles: File[]) => {
+  const handleFilesAdded = async (newFiles: File[]) => {
     const fileNames = newFiles.map(f => f.name).join(', ');
 
-    // Add user message to chat
+    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: `Uploaded: ${fileNames}`,
+      content: `📎 Uploaded: ${fileNames}`,
       timestamp: new Date()
     };
     setMessages(prev => [...prev, userMessage]);
 
-    // Prepare and classify each file
+    // Classify and stage files
     const processedFiles: UploadedFile[] = newFiles.map(file => {
       const ext = file.name.toLowerCase().split('.').pop() || '';
       const classification: UploadedFile['classification'] = [
@@ -336,12 +339,13 @@ function App({ app, notebookTracker }: Props) {
       };
     });
 
+    // (optional) Track uploaded file states if needed
     setFiles(prev => [...prev, ...processedFiles]);
 
-    // Simulate upload/progress
+    // Simulate upload/progress and finalize
     processedFiles.forEach(file => {
       let progress = 0;
-      const interval = setInterval(() => {
+      const interval = setInterval(async () => {
         progress += 20;
 
         if (progress >= 100) {
@@ -354,14 +358,30 @@ function App({ app, notebookTracker }: Props) {
             )
           );
 
-          // Add assistant message
+          // Show confirmation message
           const confirmation: Message = {
             id: Date.now().toString(),
             role: 'assistant',
-            content: `✅ File "${file.name}" has been processed as a **${file.classification}** file.`,
+            content: `✅ File "${file.name}" processed as **${file.classification}**.`,
             timestamp: new Date()
           };
           setMessages(prev => [...prev, confirmation]);
+
+          // ⬇️ Save dataset if needed and log path
+          if (file.classification === 'dataset') {
+            try {
+              const path = await saveDatasetToNotebook(
+                app,
+                newFiles.find(f => f.name === file.name)!
+              );
+              console.log(`[📦 Dataset Saved] ${file.name} → ${path}`);
+              // You could optionally notify LLM backend or attach to session
+            } catch (err) {
+              console.error(`[❌ Save Failed] ${file.name}`, err);
+            }
+          }
+
+          // 📚 For context files: implement backend storage or RAG ingestion later
         } else {
           setFiles(prev =>
             prev.map(f => (f.id === file.id ? { ...f, progress } : f))
@@ -369,8 +389,6 @@ function App({ app, notebookTracker }: Props) {
         }
       }, 400);
     });
-
-    
   };
 
   return (

@@ -19,4 +19,5 @@ export interface UploadedFile {
 export interface PendingFile extends UploadedFile {
   file: File;
   content?: string;
+  url?: string; // <-- Add this
 }

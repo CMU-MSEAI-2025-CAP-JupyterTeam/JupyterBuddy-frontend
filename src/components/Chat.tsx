@@ -118,7 +118,8 @@ const Chat: React.FC<ChatProps> = ({
       size: file.size,
       classification: classifyFile(file),
       status: 'ready',
-      file: file
+      file: file,
+      url: URL.createObjectURL(file) // 🧠 this is the local blob URL
     }));
   };
 

@@ -16,3 +16,7 @@ export interface UploadedFile {
   status: 'uploading' | 'processing' | 'ready' | 'error';
   progress?: number;
 }
+export interface PendingFile extends UploadedFile {
+  file: File;
+  content?: string;
+}

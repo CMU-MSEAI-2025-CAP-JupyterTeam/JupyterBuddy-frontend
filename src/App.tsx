@@ -5,8 +5,7 @@ import { INotebookTracker } from '@jupyterlab/notebook';
 import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
 import Chat from './components/Chat';
 import { Bot, Sun, Moon } from 'lucide-react';
-import type { Message, UploadedFile } from './types';
-import { saveDatasetToNotebook } from './jupyterbuddyTools/notebookHelpers';
+import type { Message} from './types';
 
 import '../style/index.css';
 
@@ -28,10 +27,6 @@ function App({ app, notebookTracker }: Props) {
       timestamp: new Date()
     }
   ]);
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  {
-    files.length > 0 && null;
-  }
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitingForAction, setWaitingForAction] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -252,144 +247,56 @@ function App({ app, notebookTracker }: Props) {
   // Called from <Chat /> when the user submits input
   const handleSendMessage = useCallback(
     (content: string) => {
-      // Prevent sending if conditions are not ideal
+      // Trim the message content
+      const finalMessage = content.trim();
+
+      // Prevent sending if the message is empty, a process is ongoing, or socket is not ready
       if (
-        !content.trim() || // Ignore empty messages
-        isProcessing || // Wait if already processing
-        waitingForAction || // Wait if agent is executing a notebook action
-        !socket || // Ensure WebSocket is available
-        socket.readyState !== WebSocket.OPEN // Ensure WebSocket is open
+        !finalMessage ||
+        isProcessing ||
+        waitingForAction ||
+        !socket ||
+        socket.readyState !== WebSocket.OPEN
       ) {
         return;
       }
 
-      // Mark as processing so UI can show loading state
+      // Set the state to indicate that a message is currently being processed
       setIsProcessing(true);
 
-      // Immediately show the user's message in the chat UI
+      // Add the user's message to the local chat UI
       setMessages(prev => [
         ...prev,
         {
-          id: Date.now().toString(), // Unique ID (timestamp)
-          role: 'user',
-          content: content.trim(),
-          timestamp: new Date()
+          id: Date.now().toString(), // Unique ID based on timestamp
+          role: 'user', // User role
+          content: finalMessage, // Actual message content
+          timestamp: new Date() // Current timestamp
         }
       ]);
 
-      // Extract the notebook context (code, variables, etc.)
+      // Retrieve current notebook context (e.g., cell content, metadata, etc.)
       const notebookContext =
         notebookHelpers.getNotebookContext(notebookTracker);
 
-      // Log the size of the notebook context for debugging
+      // Log context size for debugging (optional)
       const contextPayloadString = JSON.stringify(notebookContext);
       console.log(
         'notebookContext size (characters):',
         contextPayloadString.length
       );
 
-      // Send the message and notebook context to the backend agent
+      // Send the message and notebook context to the backend via WebSocket
       socket.send(
         JSON.stringify({
           type: 'user_message',
-          data: content.trim(), // The user’s message
-          notebook_context: notebookContext
+          data: finalMessage, // User message content
+          notebook_context: notebookContext // Notebook metadata/context
         })
       );
     },
     [isProcessing, waitingForAction, socket, notebookTracker]
   );
-
-  const handleFilesAdded = async (newFiles: File[]) => {
-    const fileNames = newFiles.map(f => f.name).join(', ');
-
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: `📎 Uploaded: ${fileNames}`,
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, userMessage]);
-
-    // Classify and stage files
-    const processedFiles: UploadedFile[] = newFiles.map(file => {
-      const ext = file.name.toLowerCase().split('.').pop() || '';
-      const classification: UploadedFile['classification'] = [
-        'csv',
-        'xls',
-        'xlsx',
-        'parquet'
-      ].includes(ext)
-        ? 'dataset'
-        : ['txt', 'md', 'pdf'].includes(ext)
-          ? 'context'
-          : 'processing';
-
-      console.log(`[📂 Classify] ${file.name} → ${classification}`);
-
-      return {
-        id: Date.now().toString() + Math.random(),
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        classification,
-        status: 'uploading',
-        progress: 0
-      };
-    });
-
-    // (optional) Track uploaded file states if needed
-    setFiles(prev => [...prev, ...processedFiles]);
-
-    // Simulate upload/progress and finalize
-    processedFiles.forEach(file => {
-      let progress = 0;
-      const interval = setInterval(async () => {
-        progress += 20;
-
-        if (progress >= 100) {
-          clearInterval(interval);
-
-          // Mark file as ready
-          setFiles(prev =>
-            prev.map(f =>
-              f.id === file.id ? { ...f, status: 'ready', progress: 100 } : f
-            )
-          );
-
-          // Show confirmation message
-          const confirmation: Message = {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: `✅ File "${file.name}" processed as **${file.classification}**.`,
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, confirmation]);
-
-          // ⬇️ Save dataset if needed and log path
-          if (file.classification === 'dataset') {
-            try {
-              const path = await saveDatasetToNotebook(
-                app,
-                newFiles.find(f => f.name === file.name)!
-              );
-              console.log(`[📦 Dataset Saved] ${file.name} → ${path}`);
-              // You could optionally notify LLM backend or attach to session
-            } catch (err) {
-              console.error(`[❌ Save Failed] ${file.name}`, err);
-            }
-          }
-
-          // 📚 For context files: implement backend storage or RAG ingestion later
-        } else {
-          setFiles(prev =>
-            prev.map(f => (f.id === file.id ? { ...f, progress } : f))
-          );
-        }
-      }, 400);
-    });
-  };
 
   return (
     <div className="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -421,10 +328,11 @@ function App({ app, notebookTracker }: Props) {
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0">
             <Chat
+              app={app}
               messages={messages}
               onSendMessage={handleSendMessage}
-              onFilesAdded={handleFilesAdded}
               isProcessing={isProcessing}
+              setIsProcessing={setIsProcessing}
             />
           </div>
         </div>

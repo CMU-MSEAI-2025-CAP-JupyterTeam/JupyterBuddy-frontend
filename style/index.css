@@ -221,6 +221,9 @@
   .\!inline {
     display: inline !important;
   }
+  .block {
+    display: block;
+  }
   .contents {
     display: contents;
   }

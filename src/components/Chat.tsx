@@ -1,6 +1,8 @@
 import React from 'react';
-import { Message, PendingFile, UploadedFile } from '../types';
+import { Message, PendingFile } from '../types';
 import MessageItem from './MessageItem';
+import { saveDatasetToNotebook } from '../jupyterbuddyTools/notebookHelpers';
+import { JupyterFrontEnd } from '@jupyterlab/application';
 import {
   SendHorizontal,
   Plus,
@@ -13,17 +15,19 @@ import {
 const LONG_MESSAGE_THRESHOLD = 500; // Characters
 
 interface ChatProps {
+  app: JupyterFrontEnd;
   messages: Message[];
-  onSendMessage: (content: string, files: UploadedFile[]) => void; // updated
-  onFilesAdded: (files: File[]) => void;
+  onSendMessage: (content: string) => void; // updated;
   isProcessing: boolean;
+  setIsProcessing: React.Dispatch<React.SetStateAction<boolean>>; //
 }
 
 const Chat: React.FC<ChatProps> = ({
+  app,
   messages,
   onSendMessage,
-  onFilesAdded,
-  isProcessing
+  isProcessing,
+  setIsProcessing
 }) => {
   const [input, setInput] = React.useState('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
@@ -31,7 +35,6 @@ const Chat: React.FC<ChatProps> = ({
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
-  const [readyFiles, setReadyFiles] = React.useState<UploadedFile[]>([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,36 +44,67 @@ const Chat: React.FC<ChatProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  // Track uploaded files
-  React.useEffect(() => {
-    const newReady = pendingFiles
-      .filter(f => f.status === 'ready')
-      .map(f => ({
-        ...f,
-        notebookPath: `data/${f.name}` // match what's created in saveDatasetToNotebook
-      }));
-    setReadyFiles(newReady);
-  }, [pendingFiles]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!input.trim() && pendingFiles.length === 0) return;
     if ((input.trim() || pendingFiles.length > 0) && !isProcessing) {
+      setIsProcessing(true); // block double-submits
+
+      const uploadedPaths: string[] = [];
+
+      // Step 1: Handle file saving if files exist
       if (pendingFiles.length > 0) {
-        const files = pendingFiles.map(pf => {
-          if (pf.content) {
-            return new File([pf.content], pf.name, { type: 'text/plain' });
+        for (const pf of pendingFiles) {
+          const file = pf.content
+            ? new File([pf.content], pf.name, { type: 'text/plain' })
+            : pf.file;
+
+          // If it's a dataset, save to notebook
+          const ext = file.name.toLowerCase().split('.').pop() || '';
+          const isDataset = ['csv', 'xls', 'xlsx', 'parquet'].includes(ext);
+
+          if (isDataset) {
+            try {
+              const savedPath = await saveDatasetToNotebook(app, file);
+              uploadedPaths.push(savedPath); // collect relative ./data path
+            } catch (err) {
+              console.error(`[❌ Save Failed] ${file.name}`, err);
+            }
+          } else {
+            // For now, just fake path (you can later upload to backend if needed)
+            console.log(`File for RAG./context/${file.name}`);
+            messages.push({
+              id: Date.now().toString(),
+              role: 'system',
+              content: `📁 Saved context file: ./context/${file.name}`,
+              timestamp: new Date()
+            });
           }
-          return pf.file;
-        });
-        onFilesAdded(files);
-        setPendingFiles([]);
+        }
+
+        setPendingFiles([]); // Clear once processed
       }
 
-      if (input.trim() && !pendingFiles.some(pf => pf.content === input)) {
-        onSendMessage(input, readyFiles);
+      // Step 2: Construct the full message
+      let finalMessage = '';
+
+      if (input.trim()) {
+        finalMessage += input.trim();
       }
 
+      if (uploadedPaths.length > 0) {
+        const relativePaths = uploadedPaths;
+        finalMessage +=
+          (input.trim() ? '\n\n' : '') +
+          `Uploaded file locations: ${relativePaths.join(', ')}\n\n`;
+      }
+
+      // Step 3: Send to backend
+      onSendMessage(finalMessage);
+
+      // Step 4: Clear input
       setInput('');
+      setIsProcessing(false);
     }
   };
 
@@ -142,7 +176,10 @@ const Chat: React.FC<ChatProps> = ({
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    if (!chatContainerRef.current?.contains(e.relatedTarget as Node)) {
+    if (
+      !e.relatedTarget ||
+      !chatContainerRef.current?.contains(e.relatedTarget as Node)
+    ) {
       setIsDragging(false);
     }
   };

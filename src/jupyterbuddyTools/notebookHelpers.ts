@@ -267,6 +267,8 @@ export async function saveDatasetToNotebook(app: JupyterFrontEnd, file: File): P
     content
   });
 
-  console.log(`[✅ Saved] ${filePath}`);
-  return filePath;
+  const finalFilePath = `./${file.name}`
+
+  console.log(`[✅ Saved] ${finalFilePath}`);
+  return finalFilePath;
 }

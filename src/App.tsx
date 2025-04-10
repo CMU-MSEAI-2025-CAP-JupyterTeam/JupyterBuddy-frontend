@@ -27,6 +27,8 @@ function App({ app, notebookTracker }: Props) {
       timestamp: new Date()
     }
   ]);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  {files.length > 0 && null}
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitingForAction, setWaitingForAction] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -39,13 +41,16 @@ function App({ app, notebookTracker }: Props) {
   // Dark mode ci=ontrol
   const [isDark, setIsDark] = React.useState(() => {
     const savedTheme = localStorage.getItem('theme');
-    return savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    return (
+      savedTheme === 'dark' ||
+      (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    );
   });
 
   const toggleTheme = () => {
     const newTheme = !isDark;
     setIsDark(newTheme);
-    
+
     // Update DOM and localStorage
     const root = document.documentElement;
     if (newTheme) {
@@ -56,7 +61,6 @@ function App({ app, notebookTracker }: Props) {
       localStorage.setItem('theme', 'light');
     }
   };
-  
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -293,8 +297,80 @@ function App({ app, notebookTracker }: Props) {
     [isProcessing, waitingForAction, socket, notebookTracker]
   );
 
-  const handleFilesAdded = (files: File[]) => {
-    console.log('Files added (not yet handled):', files);
+  const handleFilesAdded = (newFiles: File[]) => {
+    const fileNames = newFiles.map(f => f.name).join(', ');
+
+    // Add user message to chat
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: `Uploaded: ${fileNames}`,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMessage]);
+
+    // Prepare and classify each file
+    const processedFiles: UploadedFile[] = newFiles.map(file => {
+      const ext = file.name.toLowerCase().split('.').pop() || '';
+      const classification: UploadedFile['classification'] = [
+        'csv',
+        'xls',
+        'xlsx',
+        'parquet'
+      ].includes(ext)
+        ? 'dataset'
+        : ['txt', 'md', 'pdf'].includes(ext)
+          ? 'context'
+          : 'processing';
+
+      console.log(`[📂 Classify] ${file.name} → ${classification}`);
+
+      return {
+        id: Date.now().toString() + Math.random(),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        classification,
+        status: 'uploading',
+        progress: 0
+      };
+    });
+
+    setFiles(prev => [...prev, ...processedFiles]);
+
+    // Simulate upload/progress
+    processedFiles.forEach(file => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 20;
+
+        if (progress >= 100) {
+          clearInterval(interval);
+
+          // Mark file as ready
+          setFiles(prev =>
+            prev.map(f =>
+              f.id === file.id ? { ...f, status: 'ready', progress: 100 } : f
+            )
+          );
+
+          // Add assistant message
+          const confirmation: Message = {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `✅ File "${file.name}" has been processed as a **${file.classification}** file.`,
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, confirmation]);
+        } else {
+          setFiles(prev =>
+            prev.map(f => (f.id === file.id ? { ...f, progress } : f))
+          );
+        }
+      }, 400);
+    });
+
+    
   };
 
   return (

@@ -5,7 +5,7 @@ import { INotebookTracker } from '@jupyterlab/notebook';
 import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
 import Chat from './components/Chat';
 import { Bot, Sun, Moon } from 'lucide-react';
-import type { Message } from './types';
+import type { Message, UploadedFile } from './types';
 
 import '../style/index.css';
 

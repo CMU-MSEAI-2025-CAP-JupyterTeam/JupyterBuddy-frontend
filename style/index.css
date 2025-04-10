@@ -8,6 +8,7 @@
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
     --color-green-500: oklch(72.3% 0.219 149.579);
+    --color-sky-500: oklch(68.5% 0.169 237.323);
     --color-blue-50: oklch(97% 0.014 254.604);
     --color-blue-100: oklch(93.2% 0.032 255.585);
     --color-blue-300: oklch(80.9% 0.105 251.813);
@@ -429,6 +430,15 @@
   .border-gray-300 {
     border-color: var(--color-gray-300);
   }
+  .bg-\[\#6e7c7c\] {
+    background-color: #6e7c7c;
+  }
+  .bg-\[\#8c9696\] {
+    background-color: #8c9696;
+  }
+  .bg-\[\#d3e5e5\] {
+    background-color: #d3e5e5;
+  }
   .bg-blue-50 {
     background-color: var(--color-blue-50);
   }
@@ -458,6 +468,18 @@
   }
   .bg-gray-200 {
     background-color: var(--color-gray-200);
+  }
+  .bg-gray-300 {
+    background-color: var(--color-gray-300);
+  }
+  .bg-gray-500 {
+    background-color: var(--color-gray-500);
+  }
+  .bg-sky-500\/100 {
+    background-color: color-mix(in srgb, oklch(68.5% 0.169 237.323) 100%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-sky-500) 100%, transparent);
+    }
   }
   .bg-transparent {
     background-color: transparent;

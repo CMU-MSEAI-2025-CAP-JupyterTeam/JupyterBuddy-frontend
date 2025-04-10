@@ -229,7 +229,7 @@ const Chat: React.FC<ChatProps> = ({
             placeholder={
               pendingFiles.length > 0
                 ? 'Add a message (optional) and press Enter to send files...'
-                : 'Ask JB anything... (Shift + Enter for new line)'
+                : 'Ask JB ...'
             }
             className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[44px] max-h-32"
             disabled={isProcessing}

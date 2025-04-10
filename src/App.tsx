@@ -23,7 +23,7 @@ function App({ app, notebookTracker }: Props) {
       id: 'system-welcome',
       role: 'system',
       content:
-        'Welcome to JupyterBuddy! How can I help you with your notebook?',
+        "👋 Hi! I'm JB, your machine learning and data workflow assistant. How can I be of help?",
       timestamp: new Date()
     }
   ]);

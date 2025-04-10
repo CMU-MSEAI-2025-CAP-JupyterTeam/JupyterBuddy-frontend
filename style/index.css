@@ -265,8 +265,14 @@
   .h-screen {
     height: 100vh;
   }
+  .max-h-32 {
+    max-height: calc(var(--spacing) * 32);
+  }
   .min-h-0 {
     min-height: calc(var(--spacing) * 0);
+  }
+  .min-h-\[44px\] {
+    min-height: 44px;
   }
   .min-h-full {
     min-height: 100%;
@@ -303,6 +309,9 @@
   }
   .cursor-pointer {
     cursor: pointer;
+  }
+  .resize-none {
+    resize: none;
   }
   .list-decimal {
     list-style-type: decimal;

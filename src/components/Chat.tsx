@@ -60,6 +60,15 @@ const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, onFilesAdded, isPr
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim() && !isProcessing) {
+        handleSubmit(e);
+      }
+    }
+  };
+
   return (
     <div 
       ref={chatContainerRef}
@@ -93,13 +102,14 @@ const Chat: React.FC<ChatProps> = ({ messages, onSendMessage, onFilesAdded, isPr
           >
             <Plus className="w-5 h-5" />
           </button>
-          <input
-            type="text"
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask JB anything..."
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={handleKeyDown}
+            placeholder="Ask JB anything... "
+            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[44px] max-h-32"
             disabled={isProcessing}
+            rows={1}
           />
           <button
             type="submit"

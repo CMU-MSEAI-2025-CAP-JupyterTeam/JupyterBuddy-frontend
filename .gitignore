@@ -295,3 +295,27 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# data 
+*.csv
+*.tsv
+*.xml
+*.xlsx
+*.xls
+*.parquet
+*.zip
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.lz
+
+# large daset files
+*.hdf5
+*.h5
+*.hdf
+*.hdf5
+*.hdf5.*
+
+

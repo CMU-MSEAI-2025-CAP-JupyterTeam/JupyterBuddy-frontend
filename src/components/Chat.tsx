@@ -20,6 +20,7 @@ interface ChatProps {
   onSendMessage: (content: string) => void; // updated;
   isProcessing: boolean;
   setIsProcessing: React.Dispatch<React.SetStateAction<boolean>>; //
+  updateMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
 const Chat: React.FC<ChatProps> = ({
@@ -27,13 +28,11 @@ const Chat: React.FC<ChatProps> = ({
   messages,
   onSendMessage,
   isProcessing,
-  setIsProcessing
+  setIsProcessing,
+  updateMessages
 }) => {
   const [input, setInput] = React.useState('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  // const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const chatContainerRef = React.useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
 
   // new hooks
@@ -79,12 +78,15 @@ const Chat: React.FC<ChatProps> = ({
           } else {
             // For now, just fake path (you can later upload to backend if needed)
             console.log(`File for RAG./context/${file.name}`);
-            messages.push({
-              id: Date.now().toString(),
-              role: 'system',
-              content: `📁 Saved context file: ./context/${file.name}`,
-              timestamp: new Date()
-            });
+            updateMessages(prev => [
+              ...prev,
+              {
+                id: Date.now().toString(),
+                role: 'system',
+                content: `📁 Saved context file: ./context/${file.name}`,
+                timestamp: new Date()
+              }
+            ]);
           }
         }
 
@@ -168,21 +170,6 @@ const Chat: React.FC<ChatProps> = ({
     }));
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (
-      !e.relatedTarget ||
-      !chatContainerRef.current?.contains(e.relatedTarget as Node)
-    ) {
-      setIsDragging(false);
-    }
-  };
-
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -196,27 +183,6 @@ const Chat: React.FC<ChatProps> = ({
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    if (e.dataTransfer.files?.length) {
-      const files = Array.from(e.dataTransfer.files);
-      const datasets = files.filter(file =>
-        file.name.toLowerCase().endsWith('.csv')
-      );
-      const instructions = files.filter(
-        file => !file.name.toLowerCase().endsWith('.csv')
-      );
-
-      const newFiles = [
-        ...processFiles(datasets, 'dataset'),
-        ...processFiles(instructions, 'context')
-      ];
-      setPendingFiles(prev => [...prev, ...newFiles]);
-    }
-  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -232,23 +198,8 @@ const Chat: React.FC<ChatProps> = ({
   };
 
   return (
-    <div
-      ref={chatContainerRef}
-      className="flex flex-col h-full relative"
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* 🟦 Drag Overlay */}
-      {isDragging && (
-        <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-lg">
-            <p className="text-lg font-medium">Drop files to upload</p>
-          </div>
-        </div>
-      )}
-
-      {/* 📨 Chat Messages */}
+    <div className="flex flex-col h-full relative">
+      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         {messages.map(message => (
           <MessageItem key={message.id} message={message} />
@@ -256,7 +207,7 @@ const Chat: React.FC<ChatProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 📁 Pending Files */}
+      {/* Pending Files */}
       {pendingFiles.length > 0 && (
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           <div className="flex flex-wrap gap-2">
@@ -287,7 +238,7 @@ const Chat: React.FC<ChatProps> = ({
         </div>
       )}
 
-      {/* 📝 Input Form */}
+      {/* Input Form */}
       <form
         onSubmit={handleSubmit}
         className="p-4 border-t border-gray-200 dark:border-gray-700"
@@ -339,7 +290,7 @@ const Chat: React.FC<ChatProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={
               pendingFiles.length > 0
-                ? 'Add a message (optional) and press Enter to send files...'
+                ? 'Add a message (optional), press Enter to send files...'
                 : 'Ask JB anything...'
             }
             className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[44px] max-h-32"
@@ -347,7 +298,7 @@ const Chat: React.FC<ChatProps> = ({
             rows={1}
           />
 
-          {/* 🚀 Submit */}
+          {/* Submit */}
           <button
             type="submit"
             disabled={
@@ -362,14 +313,14 @@ const Chat: React.FC<ChatProps> = ({
         </div>
       </form>
 
-      {/* 🕵️ Hidden File Inputs */}
+      {/* Hidden File Inputs */}
       <input
         ref={instructionsFileRef}
         type="file"
         multiple
         onChange={e => handleFileSelect(e, 'context')}
         className="hidden"
-        accept=".txt,.md,.py,.ipynb,.json,.yaml,.yml"
+        accept=".txt,.md,.py,.ipynb,.json,.yaml,.yml,.pdf"
       />
       <input
         ref={datasetFileRef}

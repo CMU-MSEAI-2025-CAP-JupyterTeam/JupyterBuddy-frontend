@@ -333,6 +333,7 @@ function App({ app, notebookTracker }: Props) {
               onSendMessage={handleSendMessage}
               isProcessing={isProcessing}
               setIsProcessing={setIsProcessing}
+              updateMessages = {setMessages}
             />
           </div>
         </div>

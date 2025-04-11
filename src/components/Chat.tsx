@@ -31,10 +31,16 @@ const Chat: React.FC<ChatProps> = ({
 }) => {
   const [input, setInput] = React.useState('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  // const fileInputRef = React.useRef<HTMLInputElement>(null);
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = React.useState(false);
   const [pendingFiles, setPendingFiles] = React.useState<PendingFile[]>([]);
+
+  // new hooks
+  const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+  const instructionsFileRef = React.useRef<HTMLInputElement>(null);
+  const datasetFileRef = React.useRef<HTMLInputElement>(null);
+  const [showMenu, setShowMenu] = React.useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,38 +140,31 @@ const Chat: React.FC<ChatProps> = ({
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'dataset' | 'context'
+  ) => {
     if (e.target.files?.length) {
-      const newFiles = processFiles(Array.from(e.target.files));
+      const newFiles = processFiles(Array.from(e.target.files), type);
       setPendingFiles(prev => [...prev, ...newFiles]);
       e.target.value = '';
+      setShowMenu(false);
     }
   };
 
-  const classifyFile = (file: File): 'dataset' | 'context' => {
-    const ext = file.name.toLowerCase().split('.').pop() || '';
-
-    if (['csv', 'xls', 'xlsx', 'parquet'].includes(ext)) {
-      return 'dataset';
-    }
-
-    if (['txt', 'md', 'markdown', 'pdf'].includes(ext)) {
-      return 'context';
-    }
-
-    return 'context'; // default fallback
-  };
-
-  const processFiles = (files: File[]): PendingFile[] => {
+  const processFiles = (
+    files: File[],
+    type: 'dataset' | 'context'
+  ): PendingFile[] => {
     return files.map(file => ({
       id: Date.now().toString() + Math.random(),
       name: file.name,
       type: file.type,
       size: file.size,
-      classification: classifyFile(file),
+      classification: type,
       status: 'ready',
       file: file,
-      url: URL.createObjectURL(file) // 🧠 this is the local blob URL
+      url: URL.createObjectURL(file)
     }));
   };
 
@@ -184,11 +183,37 @@ const Chat: React.FC<ChatProps> = ({
     }
   };
 
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuButtonRef.current &&
+        !menuButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+
     if (e.dataTransfer.files?.length) {
-      const newFiles = processFiles(Array.from(e.dataTransfer.files));
+      const files = Array.from(e.dataTransfer.files);
+      const datasets = files.filter(file =>
+        file.name.toLowerCase().endsWith('.csv')
+      );
+      const instructions = files.filter(
+        file => !file.name.toLowerCase().endsWith('.csv')
+      );
+
+      const newFiles = [
+        ...processFiles(datasets, 'dataset'),
+        ...processFiles(instructions, 'context')
+      ];
       setPendingFiles(prev => [...prev, ...newFiles]);
     }
   };
@@ -214,6 +239,7 @@ const Chat: React.FC<ChatProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* 🟦 Drag Overlay */}
       {isDragging && (
         <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg z-50 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-lg">
@@ -222,6 +248,7 @@ const Chat: React.FC<ChatProps> = ({
         </div>
       )}
 
+      {/* 📨 Chat Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         {messages.map(message => (
           <MessageItem key={message.id} message={message} />
@@ -229,6 +256,7 @@ const Chat: React.FC<ChatProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* 📁 Pending Files */}
       {pendingFiles.length > 0 && (
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           <div className="flex flex-wrap gap-2">
@@ -259,19 +287,52 @@ const Chat: React.FC<ChatProps> = ({
         </div>
       )}
 
+      {/* 📝 Input Form */}
       <form
         onSubmit={handleSubmit}
         className="p-4 border-t border-gray-200 dark:border-gray-700"
       >
         <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-            title="Upload files"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+          {/* ➕ Upload Dropdown */}
+          <div className="relative">
+            <button
+              ref={menuButtonRef}
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+              title="Upload files"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+
+            {showMenu && (
+              <div className="absolute bottom-full mb-2 left-0 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                <button
+                  onClick={() => instructionsFileRef.current?.click()}
+                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-left"
+                >
+                  <FileText className="w-5 h-5 text-blue-500" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Instructions
+                  </span>
+                </button>
+                <button
+                  onClick={() => datasetFileRef.current?.click()}
+                  className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-left border-t border-gray-200 dark:border-gray-700"
+                >
+                  <Database className="w-5 h-5 text-green-500" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Dataset
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 💬 Message Input */}
           <textarea
             value={input}
             onChange={handleInputChange}
@@ -279,12 +340,14 @@ const Chat: React.FC<ChatProps> = ({
             placeholder={
               pendingFiles.length > 0
                 ? 'Add a message (optional) and press Enter to send files...'
-                : 'Ask JB ...'
+                : 'Ask JB anything...'
             }
             className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[44px] max-h-32"
             disabled={isProcessing}
             rows={1}
           />
+
+          {/* 🚀 Submit */}
           <button
             type="submit"
             disabled={
@@ -297,14 +360,25 @@ const Chat: React.FC<ChatProps> = ({
             <SendHorizontal className="w-5 h-5" />
           </button>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          onChange={handleFileSelect}
-          className="hidden"
-        />
       </form>
+
+      {/* 🕵️ Hidden File Inputs */}
+      <input
+        ref={instructionsFileRef}
+        type="file"
+        multiple
+        onChange={e => handleFileSelect(e, 'context')}
+        className="hidden"
+        accept=".txt,.md,.py,.ipynb,.json,.yaml,.yml"
+      />
+      <input
+        ref={datasetFileRef}
+        type="file"
+        multiple
+        onChange={e => handleFileSelect(e, 'dataset')}
+        className="hidden"
+        accept=".csv,.xlsx,.xls,.json"
+      />
     </div>
   );
 };

@@ -9,7 +9,8 @@ import {
   X,
   Database,
   FileType,
-  FileText
+  FileText,
+  Loader
 } from 'lucide-react';
 
 const LONG_MESSAGE_THRESHOLD = 500; // Characters
@@ -298,17 +299,22 @@ const Chat: React.FC<ChatProps> = ({
           />
 
           {/* Submit */}
-          <button
-            type="submit"
-            disabled={
-              (!input.trim() && pendingFiles.length === 0) ||
-              isProcessing ||
-              pendingFiles.some(f => f.status !== 'ready')
-            }
-            className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <SendHorizontal className="w-5 h-5" />
-          </button>
+          {isProcessing ? (
+            <div className="p-2 rounded-lg bg-blue-500 text-white">
+              <Loader className="w-5 h-5 animate-spin text-white" />
+            </div>
+          ) : (
+            <button
+              type="submit"
+              disabled={
+                (!input.trim() && pendingFiles.length === 0) ||
+                pendingFiles.some(f => f.status !== 'ready')
+              }
+              className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <SendHorizontal className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </form>
 

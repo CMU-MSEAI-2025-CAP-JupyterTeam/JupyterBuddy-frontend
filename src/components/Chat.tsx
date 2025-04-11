@@ -198,9 +198,9 @@ const Chat: React.FC<ChatProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full relative ">
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 ">
         {messages.map(message => (
           <MessageItem key={message.id} message={message} />
         ))}
@@ -294,11 +294,12 @@ const Chat: React.FC<ChatProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={
               pendingFiles.length > 0
-                ? 'Add a message (optional), press Enter to send files...'
+                ? 'Add a message (optional)... '
                 : 'Ask JB anything...'
             }
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-h-[44px] max-h-32"
-            disabled={isProcessing}
+            className="flex-1 px-4 py-[11px] rounded-lg border border-gray-300 dark:border-gray-600 
+            bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 
+            focus:ring-blue-500 resize-none min-h-[44px] max-h-32 leading-[1.4]"  disabled={isProcessing}
             rows={1}
           />
 

@@ -1,3 +1,11 @@
+// Apply saved theme before React renders
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme === 'dark') {
+  document.documentElement.classList.add('dark');
+} else {
+  document.documentElement.classList.remove('dark');
+}
+
 //App.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { JupyterFrontEnd } from '@jupyterlab/application';

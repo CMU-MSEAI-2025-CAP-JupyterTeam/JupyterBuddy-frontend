@@ -4,10 +4,11 @@
 import { NotebookActions } from '@jupyterlab/notebook';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { ICodeCellModel } from '@jupyterlab/cells';
+import { JupyterFrontEnd } from '@jupyterlab/application';
 
 /**
  * Simplifies notebook cell outputs into a JSON-friendly, token-efficient format.
- * Preserves error details (`ename`, `evalue`) to support automatic error recovery.
+ * Preserves error details (`ename`, `evalue`) to support automatic error recovery. (2)
  */
 function simplifyOutputs(outputs: any[]): any[] {
   console.log("\n...........Full cell output...........");
@@ -142,9 +143,11 @@ export const notebookHelpers = {
     return notebook.activeCellIndex;
   },
 
-  // Get enhanced notebook state including execution info and outputs
+  // Get enhanced notebook state including execution info and outputs (1)
   getEnhancedNotebookState: (notebook: any) => {
     const model = notebook.model;
+    console.log("\n...........  print notebook state...........");
+    console.log('Notebook state:', model);
     
     return {
       activeCellIndex: notebook.activeCellIndex,
@@ -229,3 +232,43 @@ export const notebookHelpers = {
     }
   }
 };
+
+/**
+ * Save a dataset to the "data/" folder. Creates the folder if it doesn't exist.
+ */
+export async function saveDatasetToNotebook(app: JupyterFrontEnd, file: File): Promise<string> {
+  const contents = app.serviceManager.contents;
+  const folder = 'data';
+  const filePath = `${folder}/${file.name}`;
+
+  // Check if 'data/' directory exists
+  try {
+    await contents.get(folder); // Will throw if not exists
+  } catch (err) {
+    console.warn(`[📁 Creating directory] ${folder}`);
+
+    // Create it using a trick: newUntitled returns folder name
+    await contents.newUntitled({
+      path: '',
+      type: 'directory'
+    });
+
+    // Note: This creates 'Untitled Folder', you may rename it via .rename() to 'data' if needed
+    await contents.rename('Untitled Folder', folder);
+  }
+
+  // Read content
+  const content = await file.text();
+
+  // Save file
+  await contents.save(filePath, {
+    type: 'file',
+    format: 'text', // or 'base64' if binary
+    content
+  });
+
+  const finalFilePath = `./${file.name}`
+
+  console.log(`[✅ Saved] ${finalFilePath}`);
+  return finalFilePath;
+}

@@ -1,7 +1,10 @@
+//index.ts
+import '../style/index.css';
 import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from "@jupyterlab/application";
+
 
 import { INotebookTracker } from "@jupyterlab/notebook";
 import { AppWidget } from "./widgets/AppWidget";

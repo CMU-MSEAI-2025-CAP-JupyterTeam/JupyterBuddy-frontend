@@ -1,19 +1,24 @@
+// Apply saved theme before React renders
+const savedTheme = localStorage.getItem('theme');
+if (savedTheme === 'dark') {
+  document.documentElement.classList.add('dark');
+} else {
+  document.documentElement.classList.remove('dark');
+}
+
 //App.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { JupyterFrontEnd } from '@jupyterlab/application';
 import { INotebookTracker } from '@jupyterlab/notebook';
-import { Button, InputGroup } from '@jupyterlab/ui-components';
 import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
+import Chat from './components/Chat';
+import { Bot, Sun, Moon } from 'lucide-react';
+import type { Message} from './types';
+
 import '../style/index.css';
 
 // Import tools from jupyterbuddyTools
-import { getToolsJSON, createToolExecutor} from './jupyterbuddyTools/tools';
-
-// Define interfaces
-interface Message {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}
+import { getToolsJSON, createToolExecutor } from './jupyterbuddyTools/tools';
 
 interface Props {
   app: JupyterFrontEnd;
@@ -23,26 +28,45 @@ interface Props {
 function App({ app, notebookTracker }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
+      id: 'system-welcome',
       role: 'system',
-      content: 'Welcome to JupyterBuddy! How can I help you with your notebook?'
+      content:
+        "👋 Hi! I'm JB, your machine learning and data workflow assistant. How can I be of help?",
+      timestamp: new Date()
     }
   ]);
-  const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [waitingForAction, setWaitingForAction] = useState(false);
   const [socket, setSocket] = useState<WebSocket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Create the tool executor function using the helper
-  const executeToolAction = useCallback(
-    createToolExecutor(notebookTracker),
-    [notebookTracker]
-  );
+  const executeToolAction = useCallback(createToolExecutor(notebookTracker), [
+    notebookTracker
+  ]);
 
-  // Auto-scroll to bottom of messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Dark mode ci=ontrol
+  const [isDark, setIsDark] = React.useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    return (
+      savedTheme === 'dark' ||
+      (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    );
+  });
+
+  const toggleTheme = () => {
+    const newTheme = !isDark;
+    setIsDark(newTheme);
+
+    // Update DOM and localStorage
+    const root = document.documentElement;
+    if (newTheme) {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -55,12 +79,12 @@ function App({ app, notebookTracker }: Props) {
         type: 'register_tools',
         data: getToolsJSON()
       };
-      
+
       // Log size
       const toolsPayloadString = JSON.stringify(toolsPayload);
       console.log('Payload size (characters):', toolsPayloadString.length);
       console.log('Sending tool definitions:', toolsPayload);
-      
+
       // Send payload
       ws.send(JSON.stringify(toolsPayload));
     };
@@ -72,10 +96,16 @@ function App({ app, notebookTracker }: Props) {
       if (data.message && !data.actions) {
         setMessages(prev => [
           ...prev,
-          { role: 'assistant', content: data.message }
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: data.message,
+            timestamp: new Date()
+          }
         ]);
+
         setIsProcessing(false);
-      } 
+      }
       // Handle actions from the LLM
       else if (data.actions && data.actions.length > 0) {
         console.log('Received actions from LLM:', data.actions);
@@ -84,24 +114,32 @@ function App({ app, notebookTracker }: Props) {
         if (data.message) {
           setMessages(prev => [
             ...prev,
-            { role: 'assistant', content: data.message }
+            {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: data.message,
+              timestamp: new Date()
+            }
           ]);
         }
 
         // Process only the first action (backend only processes one at a time)
         const action = data.actions[0];
         const { tool_name, parameters } = action;
-        
-        console.log(`Executing tool: ${tool_name} with parameters:`, parameters);
-        
+
+        console.log(
+          `Executing tool: ${tool_name} with parameters:`,
+          parameters
+        );
+
         // Set state to indicate we're waiting for an action to complete
         setWaitingForAction(true);
-        
+
         // Execute the single action
         try {
           const result = await executeToolAction(tool_name, parameters);
           console.log(`Tool execution result:`, result);
-          
+
           // Send back only the single result
           if (ws.readyState === WebSocket.OPEN) {
             console.log('Sending action result back to backend:', result);
@@ -109,8 +147,8 @@ function App({ app, notebookTracker }: Props) {
               JSON.stringify({
                 type: 'action_result',
                 data: {
-                  results: [result],  // Always an array with a single result
-                  notebook_context: null  // No need to send full context after each action
+                  results: [result], // Always an array with a single result
+                  notebook_context: null // No need to send full context after each action
                 }
               })
             );
@@ -120,8 +158,11 @@ function App({ app, notebookTracker }: Props) {
             setMessages(prev => [
               ...prev,
               {
+                id: Date.now().toString(),
                 role: 'system',
-                content: 'Connection lost. Please refresh the page to reconnect.'
+                content:
+                  'Connection lost. Please refresh the page to reconnect.',
+                timestamp: new Date()
               }
             ]);
             setWaitingForAction(false);
@@ -129,31 +170,36 @@ function App({ app, notebookTracker }: Props) {
           }
         } catch (error) {
           console.error('Error executing tool action:', error);
-          
+
           // Send back error result
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(
               JSON.stringify({
                 type: 'action_result',
                 data: {
-                  results: [{
-                    action_type: tool_name,
-                    result: {},
-                    success: false,
-                    error: error instanceof Error ? error.message : 'Unknown error'
-                  }],
+                  results: [
+                    {
+                      action_type: tool_name,
+                      result: {},
+                      success: false,
+                      error:
+                        error instanceof Error ? error.message : 'Unknown error'
+                    }
+                  ],
                   notebook_context: null
                 }
               })
             );
           }
-          
+
           // Show error to user
           setMessages(prev => [
             ...prev,
             {
+              id: Date.now().toString(),
               role: 'system',
-              content: `Error executing operation: ${error instanceof Error ? error.message : 'Unknown error'}`
+              content: `Error executing operation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              timestamp: new Date()
             }
           ]);
         } finally {
@@ -168,11 +214,14 @@ function App({ app, notebookTracker }: Props) {
       setMessages(prev => [
         ...prev,
         {
+          id: Date.now().toString(),
           role: 'system',
           content:
-            'Connection error. Please check if the backend server is running.'
+            'Connection error. Please check if the backend server is running.',
+          timestamp: new Date()
         }
       ]);
+
       setIsProcessing(false);
       setWaitingForAction(false);
     };
@@ -186,8 +235,10 @@ function App({ app, notebookTracker }: Props) {
         setMessages(prev => [
           ...prev,
           {
+            id: Date.now().toString(),
             role: 'system',
-            content: 'Connection closed. Please refresh the page to reconnect.'
+            content: 'Connection closed. Please refresh the page to reconnect.',
+            timestamp: new Date()
           }
         ]);
       }
@@ -200,94 +251,101 @@ function App({ app, notebookTracker }: Props) {
     };
   }, [executeToolAction]);
 
-  // Send a message to the backend
-  const sendMessage = useCallback(
-    (event: React.FormEvent) => {
-      event.preventDefault();
+  // Handles sending a user message to the backend (LLM agent)
+  // Called from <Chat /> when the user submits input
+  const handleSendMessage = useCallback(
+    (content: string) => {
+      // Trim the message content
+      const finalMessage = content.trim();
 
-      // Don't send if input is empty, already processing, or WebSocket is not ready
+      // Prevent sending if the message is empty, a process is ongoing, or socket is not ready
       if (
-        !input.trim() ||
+        !finalMessage ||
         isProcessing ||
-        waitingForAction ||  // Add check for waitingForAction
+        waitingForAction ||
         !socket ||
         socket.readyState !== WebSocket.OPEN
       ) {
         return;
       }
 
-      const content = input.trim();
-      setInput('');
+      // Set the state to indicate that a message is currently being processed
       setIsProcessing(true);
-      setMessages(prev => [...prev, { role: 'user', content }]);
 
-      // Get full notebook context for user message
-      const notebookContext = notebookHelpers.getNotebookContext(notebookTracker);
+      // Add the user's message to the local chat UI
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(), // Unique ID based on timestamp
+          role: 'user', // User role
+          content: finalMessage, // Actual message content
+          timestamp: new Date() // Current timestamp
+        }
+      ]);
 
-      // Log notebookContext size
+      // Retrieve current notebook context (e.g., cell content, metadata, etc.)
+      const notebookContext =
+        notebookHelpers.getNotebookContext(notebookTracker);
+
+      // Log context size for debugging (optional)
       const contextPayloadString = JSON.stringify(notebookContext);
-      console.log('notebookContext size (characters):', contextPayloadString.length);
+      console.log(
+        'notebookContext size (characters):',
+        contextPayloadString.length
+      );
 
+      // Send the message and notebook context to the backend via WebSocket
       socket.send(
         JSON.stringify({
           type: 'user_message',
-          data: content,
-          notebook_context: notebookContext
+          data: finalMessage, // User message content
+          notebook_context: notebookContext // Notebook metadata/context
         })
       );
     },
-    [input, isProcessing, waitingForAction, socket, notebookTracker]
+    [isProcessing, waitingForAction, socket, notebookTracker]
   );
 
   return (
-    <div className="jp-JupyterBuddy-container">
-      <div className="jp-JupyterBuddy-chatMessages">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`jp-JupyterBuddy-message jp-JupyterBuddy-${msg.role}`}
-          >
-            <div className="jp-JupyterBuddy-messageRole">
-              {msg.role === 'user'
-                ? 'You'
-                : msg.role === 'assistant'
-                  ? 'Assistant'
-                  : 'System'}
+    <div className="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <Bot className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+              </div>
+              <h1 className="text-xl font-semibold">JupyterBuddy</h1>
             </div>
-            <div className="jp-JupyterBuddy-messageContent">{msg.content}</div>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              title="Toggle dark mode"
+            >
+              {isDark ? (
+                <Sun className="w-5 h-5" />
+              ) : (
+                <Moon className="w-5 h-5" />
+              )}
+            </button>
           </div>
-        ))}
-        {isProcessing && (
-          <div className="jp-JupyterBuddy-message jp-JupyterBuddy-assistant">
-            <div className="jp-JupyterBuddy-messageRole">Assistant</div>
-            <div className="jp-JupyterBuddy-messageContent">Thinking...</div>
-          </div>
-        )}
-        {waitingForAction && (
-          <div className="jp-JupyterBuddy-message jp-JupyterBuddy-system">
-            <div className="jp-JupyterBuddy-messageRole">System</div>
-            <div className="jp-JupyterBuddy-messageContent">Executing notebook operation...</div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+        </header>
 
-      <form onSubmit={sendMessage} className="jp-JupyterBuddy-inputForm">
-        <InputGroup
-          type="text"
-          placeholder="Ask a question about your notebook..."
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          disabled={isProcessing || waitingForAction}
-          className="jp-JupyterBuddy-input"
-        />
-        <Button 
-          type="submit" 
-          disabled={isProcessing || waitingForAction || !input.trim()}
-        >
-          Send
-        </Button>
-      </form>
+        {/* Main content */}
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0">
+            <Chat
+              app={app}
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              isProcessing={isProcessing}
+              setIsProcessing={setIsProcessing}
+              updateMessages = {setMessages}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

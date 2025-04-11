@@ -1,0 +1,4 @@
+/* style/input.css */
+@import "tailwindcss";
+/* 👇 Add this to activate class-based dark mode instead of media-based */
+@custom-variant dark (&:where(.dark, .dark *));

@@ -2,6 +2,10 @@
     "name": "jupyterbuddy",
     "version": "0.1.0",
     "description": "A JupyterLab extension that enables users to perform AI/ML workflows seamlessly via a natural language conversational interface integrated directly into JupyterLab.",
+    "resolutions": {
+        "@lumino/widgets": "2.7.0",
+        "@jupyter-widgets/base": "^6.0.10"
+    },
     "keywords": [
         "jupyter",
         "jupyterlab",
@@ -29,12 +33,13 @@
         "url": "https://github.com/CMU-MSEAI-2025-CAP-JupyterTeam/JupyterBuddy.git"
     },
     "scripts": {
-        "build": "jlpm build:lib && jlpm build:labextension:dev",
-        "build:prod": "jlpm clean && jlpm build:lib:prod && jlpm build:labextension",
+        "build": "jlpm build:lib && jlpm build:css && jlpm build:labextension:dev",
+        "build:prod": "jlpm clean && jlpm build:lib:prod && jlpm build:css && jlpm build:labextension",
         "build:labextension": "jupyter labextension build .",
-        "build:labextension:dev": "jupyter labextension build --development True .",
+        "build:labextension:dev": "jupyter labextension build --development=False .",
         "build:lib": "tsc --sourceMap",
         "build:lib:prod": "tsc",
+        "build:css": "tailwindcss -i ./style/input.css -o ./style/index.css",
         "clean": "jlpm clean:lib",
         "clean:lib": "rimraf lib tsconfig.tsbuildinfo",
         "clean:lintcache": "rimraf .eslintcache .stylelintcache",
@@ -51,20 +56,29 @@
         "stylelint": "jlpm stylelint:check --fix",
         "stylelint:check": "stylelint --cache \"style/**/*.css\"",
         "test": "jest --coverage",
-        "watch": "run-p watch:src watch:labextension",
+        "watch": "run-p watch:src watch:labextension watch:css",
         "watch:src": "tsc -w --sourceMap",
-        "watch:labextension": "jupyter labextension watch ."
+        "watch:labextension": "jupyter labextension watch .",
+        "watch:css": "tailwindcss -i ./style/input.css -o ./style/index.css --watch"
     },
     "dependencies": {
-        "@jupyterlab/application": "^4.0.0"
+        "@jupyter-widgets/base": "^6.0.10",
+        "@jupyterlab/application": "^4.0.0",
+        "@lumino/widgets": "^2.7.0",
+        "lucide-react": "^0.487.0",
+        "react-markdown": "^10.1.0",
+        "react-syntax-highlighter": "^15.6.1",
+        "remark-gfm": "^4.0.1"
     },
     "devDependencies": {
         "@jupyterlab/builder": "^4.0.0",
         "@jupyterlab/testutils": "^4.0.0",
+        "@tailwindcss/cli": "^4.1.3",
         "@types/jest": "^29.5.14",
         "@types/json-schema": "^7.0.11",
         "@types/react": "^18.0.26",
         "@types/react-addons-linked-state-mixin": "^0.14.22",
+        "@types/react-syntax-highlighter": "^15.5.13",
         "@typescript-eslint/eslint-plugin": "^6.1.0",
         "@typescript-eslint/parser": "^6.1.0",
         "css-loader": "^6.7.1",
@@ -82,20 +96,32 @@
         "stylelint-config-standard": "^34.0.0",
         "stylelint-csstree-validator": "^3.0.0",
         "stylelint-prettier": "^4.0.0",
+        "tailwindcss": "^4.1.3",
         "typescript": "~5.0.2",
         "yjs": "^13.5.0"
     },
     "sideEffects": [
         "style/*.css",
-        "style/index.js"
+        "style/index.css"
     ],
-    "styleModule": "style/index.js",
     "publishConfig": {
         "access": "public"
     },
     "jupyterlab": {
         "extension": true,
-        "outputDir": "jupyterBuddy/labextension"
+        "outputDir": "jupyterBuddy/labextension",
+        "sharedPackages": {
+            "@lumino/widgets": {
+                "singleton": true,
+                "requiredVersion": "^2.7.0",
+                "strictVersion": false
+            },
+            "@jupyter-widgets/base": {
+                "singleton": true,
+                "requiredVersion": "^6.0.0",
+                "strictVersion": false
+            }
+        }
     },
     "eslintIgnore": [
         "node_modules",

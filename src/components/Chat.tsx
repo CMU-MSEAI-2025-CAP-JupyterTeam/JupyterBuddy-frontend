@@ -294,7 +294,7 @@ const Chat: React.FC<ChatProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={
               pendingFiles.length > 0
-                ? 'Add a message (optional)... '
+                ? 'Add a message ... '
                 : 'Ask JB anything...'
             }
             className="flex-1 px-4 py-[11px] rounded-lg border border-gray-300 dark:border-gray-600 
@@ -330,7 +330,7 @@ const Chat: React.FC<ChatProps> = ({
         multiple
         onChange={e => handleFileSelect(e, 'context')}
         className="hidden"
-        accept=".txt,.md,.py,.ipynb,.json,.yaml,.yml,.pdf"
+        accept=".txt,.md,.py,.ipynb,.json,.yaml,.yml,.pdf,.docx,.doc"
       />
       <input
         ref={datasetFileRef}

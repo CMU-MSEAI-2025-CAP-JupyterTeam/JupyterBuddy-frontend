@@ -256,7 +256,11 @@ const Chat: React.FC<ChatProps> = ({
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
               title="Upload files"
             >
-              <Plus className="w-5 h-5" />
+              {showMenu ? (
+                <X className="w-5 h-5 text-red-500" />
+              ) : (
+                <Plus className="w-5 h-5" />
+              )}
             </button>
 
             {showMenu && (

@@ -112,7 +112,6 @@ const Chat: React.FC<ChatProps> = ({
 
       // Step 4: Clear input
       setInput('');
-      setIsProcessing(false);
     }
   };
 

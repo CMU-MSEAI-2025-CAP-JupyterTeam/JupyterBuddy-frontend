@@ -1,3 +1,4 @@
+//src/components/Chat.tsx
 import React from 'react';
 import { Message, PendingFile } from '../types';
 import MessageItem from './MessageItem';

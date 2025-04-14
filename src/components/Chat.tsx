@@ -4,6 +4,8 @@ import { Message, PendingFile } from '../types';
 import MessageItem from './MessageItem';
 import { saveDatasetToNotebook } from '../jupyterbuddyTools/notebookHelpers';
 import { JupyterFrontEnd } from '@jupyterlab/application';
+import { buildContextPayload } from '../utilities/fileUtilities';
+
 import {
   SendHorizontal,
   Plus,
@@ -19,7 +21,7 @@ const LONG_MESSAGE_THRESHOLD = 500; // Characters
 interface ChatProps {
   app: JupyterFrontEnd;
   messages: Message[];
-  onSendMessage: (content: string) => void; // updated;
+  onSendMessage: (content: string, context?: any[]) => void;
   isProcessing: boolean;
   setIsProcessing: React.Dispatch<React.SetStateAction<boolean>>; //
   updateMessages: React.Dispatch<React.SetStateAction<Message[]>>;
@@ -58,8 +60,9 @@ const Chat: React.FC<ChatProps> = ({
       setIsProcessing(true); // block double-submits
 
       const uploadedPaths: string[] = [];
+      const contextFiles: File[] = [];
 
-      // Step 1: Handle file saving if files exist
+      // Step 1: Handle file saving and context file extraction
       if (pendingFiles.length > 0) {
         for (const pf of pendingFiles) {
           const file = pf.content
@@ -73,13 +76,15 @@ const Chat: React.FC<ChatProps> = ({
           if (isDataset) {
             try {
               const savedPath = await saveDatasetToNotebook(app, file);
-              uploadedPaths.push(savedPath); // collect relative ./data path
+              uploadedPaths.push(savedPath); // for notebook tool usage
             } catch (err) {
               console.error(`[❌ Save Failed] ${file.name}`, err);
             }
           } else {
-            // For now, just fake path (you can later upload to backend if needed)
-            console.log(`File for RAG./context/${file.name}`);
+            // RAG context file – we’ll add it to context[] below
+            contextFiles.push(file);
+
+            // Still show system message for transparency
             updateMessages(prev => [
               ...prev,
               {
@@ -92,27 +97,29 @@ const Chat: React.FC<ChatProps> = ({
           }
         }
 
-        setPendingFiles([]); // Clear once processed
+        setPendingFiles([]); // Clear after processing
       }
 
-      // Step 2: Construct the full message
-      let finalMessage = '';
-
-      if (input.trim()) {
-        finalMessage += input.trim();
-      }
+      // Step 2: Build final user message content
+      let finalMessage = input.trim();
 
       if (uploadedPaths.length > 0) {
         const relativePaths = uploadedPaths;
         finalMessage +=
-          (input.trim() ? '\n\n' : '') +
+          (finalMessage ? '\n\n' : '') +
           `Uploaded file locations: ${relativePaths.join(', ')}\n\n`;
       }
 
-      // Step 3: Send to backend
-      onSendMessage(finalMessage);
+      // Step 3: Build RAG context payload only if needed
+      const contextPayload =
+        contextFiles.length > 0
+          ? await buildContextPayload(contextFiles)
+          : undefined;
 
-      // Step 4: Clear input
+      // Step 4: Send to backend
+      onSendMessage(finalMessage, contextPayload); // ← pass context to App.tsx
+
+      // Step 5: Reset input
       setInput('');
     }
   };
@@ -300,7 +307,8 @@ const Chat: React.FC<ChatProps> = ({
             }
             className="flex-1 px-4 py-[11px] rounded-lg border border-gray-300 dark:border-gray-600 
             bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 
-            focus:ring-blue-500 resize-none min-h-[44px] max-h-32 leading-[1.4]"  disabled={isProcessing}
+            focus:ring-blue-500 resize-none min-h-[44px] max-h-32 leading-[1.4]"
+            disabled={isProcessing}
             rows={1}
           />
 

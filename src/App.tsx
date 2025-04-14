@@ -254,7 +254,7 @@ function App({ app, notebookTracker }: Props) {
   // Handles sending a user message to the backend (LLM agent)
   // Called from <Chat /> when the user submits input
   const handleSendMessage = useCallback(
-    (content: string) => {
+    (content: string, context?: any[]) => {
       // Trim the message content
       const finalMessage = content.trim();
 
@@ -276,35 +276,41 @@ function App({ app, notebookTracker }: Props) {
       setMessages(prev => [
         ...prev,
         {
-          id: Date.now().toString(), // Unique ID based on timestamp
-          role: 'user', // User role
-          content: finalMessage, // Actual message content
-          timestamp: new Date() // Current timestamp
+          id: Date.now().toString(),
+          role: 'user',
+          content: finalMessage,
+          timestamp: new Date()
         }
       ]);
 
-      // Retrieve current notebook context (e.g., cell content, metadata, etc.)
-      const notebookContext =
-        notebookHelpers.getNotebookContext(notebookTracker);
+      // Retrieve current notebook context
+      const notebookContext = notebookHelpers.getNotebookContext(notebookTracker);
 
-      // Log context size for debugging (optional)
+      // Log notebook context size
       const contextPayloadString = JSON.stringify(notebookContext);
       console.log(
         'notebookContext size (characters):',
         contextPayloadString.length
       );
 
-      // Send the message and notebook context to the backend via WebSocket
-      socket.send(
-        JSON.stringify({
-          type: 'user_message',
-          data: finalMessage, // User message content
-          notebook_context: notebookContext // Notebook metadata/context
-        })
-      );
+      // Build the payload
+      const messagePayload: any = {
+        type: 'user_message',
+        data: finalMessage,
+        notebook_context: notebookContext
+      };
+
+      // Include RAG context only if present
+      if (context && context.length > 0) {
+        messagePayload.context = context;
+      }
+
+      // Send the message and context to backend via WebSocket
+      socket.send(JSON.stringify(messagePayload));
     },
     [isProcessing, waitingForAction, socket, notebookTracker]
   );
+
 
   return (
     <div className="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">

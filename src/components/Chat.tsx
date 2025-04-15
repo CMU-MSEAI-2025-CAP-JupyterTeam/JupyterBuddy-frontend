@@ -55,36 +55,31 @@ const Chat: React.FC<ChatProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!input.trim() && pendingFiles.length === 0) return;
+
     if ((input.trim() || pendingFiles.length > 0) && !isProcessing) {
       setIsProcessing(true); // block double-submits
 
-      const uploadedPaths: string[] = [];
-      const contextFiles: File[] = [];
+      const uploadedPaths: string[] = []; // dataset paths for notebook tools
+      const contextFiles: File[] = []; // files for RAG context
 
-      // Step 1: Handle file saving and context file extraction
+      // Step 1: Process pending files based on classification
       if (pendingFiles.length > 0) {
         for (const pf of pendingFiles) {
           const file = pf.content
             ? new File([pf.content], pf.name, { type: 'text/plain' })
             : pf.file;
 
-          // If it's a dataset, save to notebook
-          const ext = file.name.toLowerCase().split('.').pop() || '';
-          const isDataset = ['csv', 'xls', 'xlsx', 'parquet'].includes(ext);
-
-          if (isDataset) {
+          if (pf.classification === 'dataset') {
             try {
               const savedPath = await saveDatasetToNotebook(app, file);
-              uploadedPaths.push(savedPath); // for notebook tool usage
+              uploadedPaths.push(savedPath);
             } catch (err) {
               console.error(`[❌ Save Failed] ${file.name}`, err);
             }
-          } else {
-            // RAG context file – we’ll add it to context[] below
+          } else if (pf.classification === 'context') {
             contextFiles.push(file);
-
-            // Still show system message for transparency
             updateMessages(prev => [
               ...prev,
               {
@@ -97,17 +92,16 @@ const Chat: React.FC<ChatProps> = ({
           }
         }
 
-        setPendingFiles([]); // Clear after processing
+        setPendingFiles([]); // Clear file buffer after processing
       }
 
-      // Step 2: Build final user message content
+      // Step 2: Build final user message
       let finalMessage = input.trim();
 
       if (uploadedPaths.length > 0) {
-        const relativePaths = uploadedPaths;
         finalMessage +=
           (finalMessage ? '\n\n' : '') +
-          `Uploaded file locations: ${relativePaths.join(', ')}\n\n`;
+          `Uploaded file locations: ${uploadedPaths.join(', ')}\n\n`;
       }
 
       // Step 3: Build RAG context payload only if needed
@@ -117,22 +111,20 @@ const Chat: React.FC<ChatProps> = ({
           : undefined;
 
       // Step 4: Send to backend
-      onSendMessage(finalMessage, contextPayload); // ← pass context to App.tsx
+      onSendMessage(finalMessage, contextPayload);
 
       // Step 5: Reset input
       setInput('');
     }
   };
 
+  // Handle input change and check for long messages
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setInput(newValue);
 
-    // Check if the message is long enough to be converted to a file
-    if (
-      newValue.length >= LONG_MESSAGE_THRESHOLD &&
-      !pendingFiles.some(pf => pf.content === newValue)
-    ) {
+    // Check if the input length exceeds the threshold
+    if (newValue.length >= LONG_MESSAGE_THRESHOLD) {
       const timestamp = new Date().toISOString().split('T')[0];
       const newFile: PendingFile = {
         id: Date.now().toString() + Math.random(),
@@ -146,7 +138,10 @@ const Chat: React.FC<ChatProps> = ({
           type: 'text/plain'
         })
       };
+
+      // Show system message for transparency
       setPendingFiles(prev => [...prev, newFile]);
+      setInput('');
     }
   };
 
@@ -347,7 +342,7 @@ const Chat: React.FC<ChatProps> = ({
         multiple
         onChange={e => handleFileSelect(e, 'dataset')}
         className="hidden"
-        accept=".csv,.xlsx,.xls,.json"
+        accept=".csv,.xlsx,.xls,.json,.parquet"
       />
     </div>
   );

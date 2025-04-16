@@ -260,7 +260,7 @@ function App({ app, notebookTracker }: Props) {
 
       // Prevent sending if the message is empty, a process is ongoing, or socket is not ready
       if (
-        !finalMessage ||
+        (!finalMessage && (!context || context.length === 0)) ||
         isProcessing ||
         waitingForAction ||
         !socket ||
@@ -268,7 +268,7 @@ function App({ app, notebookTracker }: Props) {
       ) {
         return;
       }
-
+      
       // Set the state to indicate that a message is currently being processed
       setIsProcessing(true);
 
@@ -306,6 +306,7 @@ function App({ app, notebookTracker }: Props) {
       }
 
       // Send the message and context to backend via WebSocket
+      console.log('Sending message payload:', messagePayload);
       socket.send(JSON.stringify(messagePayload));
     },
     [isProcessing, waitingForAction, socket, notebookTracker]

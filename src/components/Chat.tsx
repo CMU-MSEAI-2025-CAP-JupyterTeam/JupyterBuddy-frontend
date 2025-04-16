@@ -111,6 +111,7 @@ const Chat: React.FC<ChatProps> = ({
           : undefined;
 
       // Step 4: Send to backend
+      console.log("📦 RAG Context Payload:", contextPayload);
       onSendMessage(finalMessage, contextPayload);
 
       // Step 5: Reset input

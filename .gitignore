@@ -319,3 +319,12 @@ dist-ssr
 *.hdf5.*
 
 
+# database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+

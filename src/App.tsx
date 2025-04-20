@@ -13,7 +13,7 @@ import { INotebookTracker } from '@jupyterlab/notebook';
 import { notebookHelpers } from './jupyterbuddyTools/notebookHelpers';
 import Chat from './components/Chat';
 import { Bot, Sun, Moon } from 'lucide-react';
-import type { Message} from './types';
+import type { Message } from './types';
 
 import '../style/index.css';
 
@@ -268,23 +268,27 @@ function App({ app, notebookTracker }: Props) {
       ) {
         return;
       }
-      
+
       // Set the state to indicate that a message is currently being processed
       setIsProcessing(true);
 
       // Add the user's message to the local chat UI
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'user',
-          content: finalMessage,
-          timestamp: new Date()
-        }
-      ]);
+      // Only add the message to the UI if it's non-empty
+      if (finalMessage) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'user',
+            content: finalMessage,
+            timestamp: new Date()
+          }
+        ]);
+      }
 
       // Retrieve current notebook context
-      const notebookContext = notebookHelpers.getNotebookContext(notebookTracker);
+      const notebookContext =
+        notebookHelpers.getNotebookContext(notebookTracker);
 
       // Log notebook context size
       const contextPayloadString = JSON.stringify(notebookContext);
@@ -311,7 +315,6 @@ function App({ app, notebookTracker }: Props) {
     },
     [isProcessing, waitingForAction, socket, notebookTracker]
   );
-
 
   return (
     <div className="h-full bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -348,7 +351,7 @@ function App({ app, notebookTracker }: Props) {
               onSendMessage={handleSendMessage}
               isProcessing={isProcessing}
               setIsProcessing={setIsProcessing}
-              updateMessages = {setMessages}
+              updateMessages={setMessages}
             />
           </div>
         </div>

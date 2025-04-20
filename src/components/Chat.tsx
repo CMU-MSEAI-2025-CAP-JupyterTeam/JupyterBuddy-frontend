@@ -80,15 +80,6 @@ const Chat: React.FC<ChatProps> = ({
             }
           } else if (pf.classification === 'context') {
             contextFiles.push(file);
-            updateMessages(prev => [
-              ...prev,
-              {
-                id: Date.now().toString(),
-                role: 'system',
-                content: `📁 Saved context file: ./context/${file.name}`,
-                timestamp: new Date()
-              }
-            ]);
           }
         }
 

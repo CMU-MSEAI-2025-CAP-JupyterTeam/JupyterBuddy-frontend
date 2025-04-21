@@ -11,9 +11,9 @@ import { JupyterFrontEnd } from '@jupyterlab/application';
  * Preserves error details (`ename`, `evalue`) to support automatic error recovery. (2)
  */
 function simplifyOutputs(outputs: any[]): any[] {
-  console.log("\n...........Full cell output...........");
-  console.log('Cell context:', outputs);
-  console.log("..............Full cell output...........");
+  // console.log("\n...........Full cell output...........");
+  // console.log('Cell context:', outputs);
+  // console.log("..............Full cell output...........");
 
   if (!outputs || outputs.length === 0) return [];
 

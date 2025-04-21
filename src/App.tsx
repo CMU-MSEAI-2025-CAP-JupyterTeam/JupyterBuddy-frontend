@@ -293,8 +293,8 @@ function App({ app, notebookTracker }: Props) {
       // Log notebook context size
       const contextPayloadString = JSON.stringify(notebookContext);
       console.log(
-        'notebookContext size (characters):',
-        contextPayloadString.length
+        'notebookContext_to_send :',
+        contextPayloadString
       );
 
       // Build the payload
